@@ -1,0 +1,25 @@
+{
+  "name": "Shree RK iTeraHERTZ Care",
+  "short_name": "RK Clinic",
+  "description": "Clinic inventory, sales, dues and capital tracking for Shree RK iTeraHERTZ Care.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f7f9f9",
+  "theme_color": "#0f766e",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
