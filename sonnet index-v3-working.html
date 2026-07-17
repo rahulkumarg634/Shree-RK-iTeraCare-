@@ -1,0 +1,2885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="light only" />
+<title>Shree RK iTeraHERTZ Care - Clinic Inventory</title>
+
+<!-- PWA support: makes the app installable with its own icon and offline
+     support once hosted online (e.g. GitHub Pages). These tags are safe
+     no-ops when the file is simply opened locally (file://) — the app
+     works exactly as before either way. -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#0B3B36" />
+<link rel="icon" href="icon-192.png" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="RK Clinic" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  /* ==========================================================================
+     "Private Ledger" theme — banking/finance feel for a money-tracking app.
+     All colors flow from CSS variables so future tweaks are one-line changes.
+     ========================================================================== */
+  :root {
+    --ink-teal:   #0B3B36;   /* sidebar background, darkest surfaces */
+    --teal:       #12786D;   /* buttons, links, accents */
+    --teal-dark:  #0F655B;   /* button hover/border */
+    --gold:       #B08D2E;   /* money highlights, active nav indicator */
+    --gold-dark:  #8A6E22;   /* gold text on light bg (better contrast) */
+    --gold-tint:  #F3ECD8;   /* light gold background for badges/rules */
+    --offwhite:   #F7F5F1;   /* page background (warm, not stark white) */
+    --surface:    #FFFFFF;   /* card surface (kept crisp against warm bg) */
+    --terracotta: #B4453A;   /* due / danger states */
+    --terra-tint: #F7E7E4;   /* light terracotta background */
+    --ink:        #1B2C28;   /* primary body text */
+    --muted:      #5C6B66;   /* secondary/muted text */
+    --line:       #E7E2D8;   /* hairline borders, warm-toned */
+    --teal-tint:  #E6F0EE;   /* light teal surfaces (table heads etc.) */
+    --emerald:    #1F7A5C;   /* positive / ok */
+    --emerald-tint:#E4F1EB;
+  }
+
+  html { color-scheme: light; }
+  body {
+    font-family: 'Inter', sans-serif;
+    color: var(--ink);
+    background-color: var(--offwhite);
+    background-image:
+      radial-gradient(1100px 560px at 105% -12%, rgba(18,120,109,0.06), transparent 60%),
+      radial-gradient(900px 520px at -8% 108%, rgba(176,141,46,0.055), transparent 55%);
+    background-attachment: fixed;
+  }
+  h1, h2, h3, h4 { font-family: 'Fraunces', Georgia, 'Times New Roman', serif; letter-spacing: -0.01em; }
+
+  /* Money / numeric amounts — tabular mono for that precise banking look.
+     Applied via <span class="amount"> from fmtMoney(). Falls back to a
+     system mono if the font CDN is unreachable (offline clinic wifi). */
+  .amount {
+    font-family: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+
+  .std-tbody td { border-top: 1px solid var(--line); padding: 0.75rem 1rem; }
+  @media print {
+    #app { display: none !important; }
+    #printArea { position: static !important; }
+    @page { margin: 12mm; }
+  }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #C9BFA6; border-radius: 8px; }
+
+  /* ==========================================================================
+     Self-contained fallback design system (works with OR without Tailwind CDN).
+     This clinic is often used with little or no internet, so the Tailwind CDN
+     stylesheet frequently fails to load (fully or partially). Every
+     visually-critical element below (buttons, links styled as buttons,
+     sidebar, cards, badges, inputs) has its own dedicated class with
+     !important colors, so the app always looks correct — with or without
+     Tailwind, and even if a phone forces dark mode on unstyled elements.
+     ========================================================================== */
+  a, a:visited { text-decoration: none; }
+
+  .app-btn-primary, .app-btn-primary:visited {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+    border-radius: 0.85rem; padding: 0.7rem 1.35rem; font-weight: 600; font-size: 1rem;
+    cursor: pointer; background-color: var(--teal) !important; color: #ffffff !important;
+    background-image: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(0,0,0,0.06)) !important;
+    border: 1px solid var(--teal-dark) !important;
+    box-shadow: 0 1px 2px rgba(11,59,54,0.15), 0 6px 14px -4px rgba(15,101,91,0.4);
+    transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+  }
+  .app-btn-primary:hover { filter: brightness(1.05); box-shadow: 0 2px 4px rgba(11,59,54,0.18), 0 10px 20px -6px rgba(15,101,91,0.45); }
+  .app-btn-primary:active { transform: translateY(1px); box-shadow: 0 1px 2px rgba(11,59,54,0.15); }
+
+  .app-btn-secondary, .app-btn-secondary:visited {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+    border-radius: 0.85rem; padding: 0.7rem 1.35rem; font-weight: 600; font-size: 1rem;
+    cursor: pointer; background-color: var(--surface) !important; color: var(--teal) !important;
+    border: 1px solid var(--line) !important;
+    box-shadow: 0 1px 2px rgba(11,59,54,0.04);
+    transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+  }
+  .app-btn-secondary:hover { border-color: var(--teal) !important; box-shadow: 0 3px 10px -4px rgba(11,59,54,0.18); }
+  .app-btn-secondary:active { transform: translateY(1px); }
+
+  .app-btn-sidebar {
+    display: block; width: 100%; text-align: center; border-radius: 0.85rem; padding: 0.55rem 0.75rem;
+    font-weight: 600; font-size: 0.875rem; cursor: pointer;
+    background-color: rgba(255,255,255,0.10) !important; color: #ffffff !important;
+    border: 1px solid rgba(255,255,255,0.20) !important;
+    transition: background-color 0.12s ease, transform 0.12s ease;
+  }
+  .app-btn-sidebar:hover { background-color: rgba(255,255,255,0.16) !important; }
+  .app-btn-sidebar:active { transform: translateY(1px); }
+  .app-btn-danger, .app-btn-danger:visited {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+    border-radius: 0.75rem; padding: 0.5rem 1rem; font-weight: 600; font-size: 0.875rem;
+    cursor: pointer; background-color: var(--terracotta) !important; color: #ffffff !important; border: none !important;
+    box-shadow: 0 1px 2px rgba(180,69,58,0.2), 0 4px 10px -3px rgba(180,69,58,0.35);
+    transition: transform 0.12s ease, filter 0.12s ease;
+  }
+  .app-btn-danger:hover { filter: brightness(1.05); }
+  .app-btn-danger:active { transform: translateY(1px); }
+  .app-sidebar {
+    background: linear-gradient(180deg, var(--ink-teal) 0%, #082A26 100%) !important;
+    color: #ffffff !important;
+    box-shadow: inset -1px 0 0 rgba(255,255,255,0.05);
+  }
+  .app-sidebar h1 { letter-spacing: 0.01em; }
+  /* Divider under the logo block (both desktop + mobile drawer share this
+     markup shape: a "px-5 py-6" wrapper as the sidebar's first child). */
+  .app-sidebar div.px-5.py-6 {
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    margin-bottom: 0.5rem;
+    padding-bottom: 1.25rem !important;
+  }
+  .app-navlink, .app-navlink:visited { color: #CFE0DC !important; transition: background-color 0.15s ease, color 0.15s ease, padding-left 0.15s ease; }
+  .app-navlink:hover { padding-left: 0.25rem; }
+  /* Active nav: gold LEFT-STRIPE indicator on a subtle surface — white text
+     stays readable (gold-on-white text would fail contrast, so we use gold
+     only as a stripe, never behind small text). */
+  .app-navlink-active, .app-navlink-active:visited {
+    background-color: rgba(255,255,255,0.09) !important;
+    color: #ffffff !important;
+    border-left: 3px solid var(--gold) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  /* The active link's markup also carries the plain Tailwind utilities
+     "bg-white text-teal-700" (from before the theme existed). Those get
+     re-pointed by the rules later in this stylesheet (.bg-white,
+     .text-teal-700) and, at equal specificity, a later rule wins a tie —
+     which was silently overwriting the active-nav treatment above with a
+     solid white pill + teal text (unreadable against the dark sidebar).
+     This higher-specificity override locks in the intended look regardless
+     of where .bg-white/.text-teal-700 sit in the file. */
+  a.app-navlink-active.bg-white.text-teal-700,
+  a.app-navlink-active.bg-white.text-teal-700:visited {
+    background-color: rgba(255,255,255,0.09) !important;
+    color: #ffffff !important;
+    border-left: 3px solid var(--gold) !important;
+  }
+  /* Sidebar footer ("Signed in as ..." + Log Out) gets a subtle top glow */
+  .app-sidebar .border-t.border-teal-600 {
+    border-top: 1px solid rgba(255,255,255,0.08) !important;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+  }
+
+  /* Cards: crisp surface with the signature gold ledger-rule under headers. */
+  .app-card {
+    background-color: var(--surface) !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 1.25rem !important;
+    box-shadow: 0 1px 2px rgba(11,59,54,0.06), 0 10px 24px -8px rgba(11,59,54,0.10), 0 24px 48px -20px rgba(11,59,54,0.12);
+    padding: 1.5rem !important;
+    position: relative;
+    overflow: hidden;
+  }
+  /* Faint gold hairline across the top edge — a signature "ledger" touch. */
+  .app-card::before {
+    content: "";
+    position: absolute; top: 0; left: 1.5rem; right: 1.5rem; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(176,141,46,0.45), transparent);
+  }
+  /* Signature ledger stripe: a thin gold rule under any card/section heading. */
+  .app-card h3, .app-card h4 { position: relative; }
+  .app-card h3::after, .app-card h4::after {
+    content: ""; display: block; width: 40px; height: 2px;
+    background: var(--gold); border-radius: 2px; margin-top: 0.4rem;
+  }
+  /* Section sub-headings ("Low Stock Alerts", "Cart", etc.) get the same
+     gold→teal signature as page titles, one tier down in size — applies
+     consistently whether the heading sits inside a card or stands alone
+     above a table, completing the h2 > h3/h4 > muted-label hierarchy. */
+  h3.text-lg.font-bold.text-teal-700, h3.text-xl.font-bold.text-teal-700, h4.text-lg.font-bold.text-teal-700 {
+    position: relative;
+    padding-bottom: 0.45rem;
+  }
+  h3.text-lg.font-bold.text-teal-700::after, h3.text-xl.font-bold.text-teal-700::after, h4.text-lg.font-bold.text-teal-700::after {
+    content: ""; position: absolute; left: 0; bottom: 0;
+    width: 30px; height: 2px; border-radius: 2px;
+    background: linear-gradient(90deg, var(--gold), var(--teal));
+  }
+
+  /* Stat-card label: small-caps "eyebrow" above the big number (only the
+     label paragraph that is the first child of a card, i.e. statCard()
+     output — leaves ordinary in-card body text untouched). */
+  .app-card > p.text-sm.font-medium.text-slate-500:first-child {
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--muted) !important;
+  }
+  /* Stat-card number "pill": subtle inset ring + refined shape, bigger and
+     bolder for real dashboard presence. */
+  .app-card > p.mt-2.inline-block.rounded-lg {
+    padding: 0.45rem 0.95rem !important;
+    border-radius: 0.85rem !important;
+    box-shadow: inset 0 0 0 1px rgba(11,59,54,0.05);
+    letter-spacing: -0.01em;
+  }
+  .app-card > p.mt-2.inline-block.rounded-lg.text-3xl { font-size: 1.85rem !important; }
+
+  /* Dashboard/Puji stat cards: a colored top accent matching the metric's
+     own accent (teal / emerald / amber / red), read directly off the
+     number pill's existing color class. Progressive enhancement — browsers
+     without :has() just show the plain card, nothing breaks. */
+  .app-card:has(> p.mt-2.text-emerald-700) { box-shadow: inset 0 3px 0 var(--emerald), 0 1px 2px rgba(11,59,54,0.06), 0 10px 24px -8px rgba(11,59,54,0.10), 0 24px 48px -20px rgba(11,59,54,0.12); }
+  .app-card:has(> p.mt-2.text-amber-700)   { box-shadow: inset 0 3px 0 var(--gold), 0 1px 2px rgba(11,59,54,0.06), 0 10px 24px -8px rgba(11,59,54,0.10), 0 24px 48px -20px rgba(11,59,54,0.12); }
+  .app-card:has(> p.mt-2.text-red-700)     { box-shadow: inset 0 3px 0 var(--terracotta), 0 1px 2px rgba(11,59,54,0.06), 0 10px 24px -8px rgba(11,59,54,0.10), 0 24px 48px -20px rgba(11,59,54,0.12); }
+  .app-card:has(> p.mt-2.text-teal-700)    { box-shadow: inset 0 3px 0 var(--teal), 0 1px 2px rgba(11,59,54,0.06), 0 10px 24px -8px rgba(11,59,54,0.10), 0 24px 48px -20px rgba(11,59,54,0.12); }
+  /* Login card, PIN modal, medicine modal all share this shape — give them
+     the same premium elevation as regular cards. */
+  .rounded-2xl.bg-white.shadow-xl {
+    box-shadow: 0 1px 2px rgba(11,59,54,0.08), 0 16px 40px -12px rgba(11,59,54,0.22) !important;
+  }
+  /* Table wrapper (tableWrap()) gets the same rich elevation as cards,
+     without double-applying the card-only ::before hairline. */
+  .overflow-x-auto.rounded-2xl.shadow-sm:not(.app-card) {
+    box-shadow: 0 1px 2px rgba(11,59,54,0.05), 0 10px 24px -10px rgba(11,59,54,0.10) !important;
+  }
+
+  .app-badge { display: inline-flex; align-items: center; border-radius: 9999px; padding: 0.3rem 0.75rem; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.01em; }
+  .app-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; margin-right: 0.4rem; display: inline-block; flex-shrink: 0; }
+  .app-badge-ok  { background: var(--emerald-tint) !important; color: var(--emerald) !important; }
+  .app-badge-low { background: var(--gold-tint) !important; color: var(--gold-dark) !important; }
+  .app-badge-out { background: var(--terra-tint) !important; color: var(--terracotta) !important; }
+  .app-table-head { background-color: var(--teal-tint) !important; color: var(--ink-teal) !important; box-shadow: inset 0 -2px 0 rgba(176,141,46,0.35); }
+  .app-table-head th {
+    text-transform: uppercase; letter-spacing: 0.055em; font-size: 0.7rem; font-weight: 700;
+    padding: 0.85rem 1rem !important;
+  }
+  /* Subtle warm hover highlight + faint zebra striping on data rows */
+  .std-tbody tr { transition: background-color 0.1s ease; }
+  .std-tbody tr:nth-child(even) { background-color: rgba(18,120,109,0.015); }
+  .std-tbody tr:hover { background-color: rgba(18,120,109,0.045); }
+
+  input, select, .app-input {
+    font-family: inherit; font-size: 1rem; background-color: var(--surface) !important; color: var(--ink) !important;
+    border: 1px solid #CBD3CF !important; border-radius: 0.85rem; padding: 0.7rem 0.95rem;
+    box-shadow: inset 0 1px 2px rgba(11,59,54,0.03);
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  }
+  input:focus, select:focus, .app-input:focus {
+    outline: none; border-color: var(--teal) !important;
+    box-shadow: inset 0 1px 2px rgba(11,59,54,0.03), 0 0 0 3px rgba(18,120,109,0.14);
+  }
+  table { border-collapse: collapse; }
+
+  /* Form labels: small-caps "banking form" micro-label, applied only to
+     actual <label> elements built from the shared LABEL constant. */
+  label.text-sm.font-medium.text-slate-600 {
+    text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.72rem; font-weight: 700;
+    color: var(--muted) !important;
+  }
+
+  /* ==========================================================================
+     Tailwind utility RE-POINTING. The HTML markup still uses classes like
+     bg-teal-700 / text-teal-600 / bg-red-50 everywhere; instead of editing
+     hundreds of spots, we re-map those exact utilities to the new palette.
+     Zero HTML/JS class changes needed. Only runs when Tailwind CDN loads;
+     the app-* fallback classes above cover the offline case.
+     ========================================================================== */
+  .bg-teal-700 { background-color: var(--ink-teal) !important; }
+  .bg-teal-600, .bg-teal-500 { background-color: var(--teal) !important; }
+  .hover\:bg-teal-600:hover, .hover\:bg-teal-500:hover { background-color: var(--teal-dark) !important; }
+  .hover\:bg-teal-50:hover { background-color: var(--teal-tint) !important; }
+  .bg-teal-50 { background-color: var(--teal-tint) !important; }
+
+  .text-teal-700, .text-teal-600 { color: var(--teal) !important; }
+  .text-teal-50, .text-teal-100 { color: #CFE0DC !important; }
+  .border-teal-200 { border-color: var(--line) !important; }
+  .border-teal-600 { border-color: rgba(255,255,255,0.15) !important; }
+  .focus\:border-teal-500:focus { border-color: var(--teal) !important; }
+  .focus\:ring-teal-100:focus { box-shadow: 0 0 0 3px rgba(18,120,109,0.12) !important; }
+
+  /* Headings that were teal-700 read better in deep ink here */
+  h2.text-teal-700, h3.text-teal-700 { color: var(--ink-teal) !important; }
+  .text-teal-800 { color: var(--ink-teal) !important; }
+
+  /* Readonly/disabled field fill (e.g. ID Sale auto-calculated price) */
+  .bg-slate-50 { background-color: var(--offwhite) !important; }
+
+  /* Reds → terracotta */
+  .bg-red-600 { background-color: var(--terracotta) !important; }
+  .hover\:bg-red-700:hover { background-color: #97382F !important; }
+  .text-red-600, .text-red-700 { color: var(--terracotta) !important; }
+  .bg-red-50 { background-color: var(--terra-tint) !important; }
+
+  /* Ambers → gold (used for low-stock accents) */
+  .text-amber-700, .text-amber-800 { color: var(--gold-dark) !important; }
+  .bg-amber-50 { background-color: var(--gold-tint) !important; }
+  .border-amber-200 { border-color: #E4D6AE !important; }
+
+  /* Emeralds → refined emerald */
+  .text-emerald-600, .text-emerald-700 { color: var(--emerald) !important; }
+  .bg-emerald-50 { background-color: var(--emerald-tint) !important; }
+
+  /* Warm the generic gray/slate page + text tones */
+  .bg-gray-50, .bg-gray-100 { background-color: var(--offwhite) !important; }
+  .bg-white { background-color: var(--surface) !important; }
+  .text-slate-500, .text-slate-600 { color: var(--muted) !important; }
+  .text-slate-700 { color: var(--ink) !important; }
+  .text-slate-400 { color: #98A29E !important; }
+  .border-slate-100, .border-slate-200 { border-color: var(--line) !important; }
+
+  /* ---- Money / stat-number treatment ---------------------------------------
+     Stat cards use big bold numbers. Money there gets the gold + mono look.
+     Gold is only ever applied to LARGE/BOLD numbers (>=3:1 contrast on light
+     surfaces — passes WCAG AA for large text), never to small body text. */
+  .app-card .text-3xl.font-extrabold .amount,
+  .app-card .text-2xl.font-extrabold .amount {
+    color: var(--gold-dark);
+  }
+
+  /* Page-title signature: a small gold→teal underline beneath every h2 page
+     heading (Dashboard, Medicines, Stock Entry, ...), reinforcing the
+     "Private Ledger" brand mark consistently across all 12 pages. */
+  h2.text-2xl.font-extrabold {
+    position: relative;
+    padding-bottom: 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  h2.text-2xl.font-extrabold::after {
+    content: "";
+    position: absolute; left: 0; bottom: 0;
+    width: 52px; height: 3px; border-radius: 2px;
+    background: linear-gradient(90deg, var(--gold), var(--teal));
+  }
+
+  /* ---- Small-screen refinement: same design, slightly tighter rhythm so
+     premium spacing doesn't crowd out content on narrow phones. Pure
+     padding/sizing tweaks — no breakpoint logic or layout restructuring;
+     Tailwind's own responsive grid/flex classes remain untouched. ---- */
+  @media (max-width: 480px) {
+    .app-card { padding: 1.15rem !important; border-radius: 1rem !important; }
+    .app-card::before { left: 1.15rem; right: 1.15rem; }
+    .app-btn-primary, .app-btn-secondary { padding: 0.6rem 1.05rem !important; }
+    .app-table-head th { padding: 0.65rem 0.7rem !important; font-size: 0.65rem; }
+    .std-tbody td { padding: 0.65rem 0.7rem !important; }
+    label.text-sm.font-medium.text-slate-600 { font-size: 0.68rem; }
+  }
+
+  /* ==========================================================================
+     PHASE 2B — Premium Dashboard hierarchy, stat cards, spacing, composition.
+     CSS-only. Scoped to the exact stat-grid class combo used by
+     renderDashboard() and renderCapital() (verified: only these two spots
+     use "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"), so nothing
+     elsewhere in the app is affected. Reuses existing tokens/accent system.
+     ========================================================================== */
+
+  /* Richer, airier gap between stat cards than Tailwind's default gap-4. */
+  .grid.grid-cols-1.gap-4.sm\:grid-cols-2.lg\:grid-cols-3 {
+    gap: 1.25rem;
+  }
+
+  /* More breathing room between a stat card's eyebrow label and its number,
+     and a touch more vertical rhythm before the number itself. */
+  .app-card > p.text-sm.font-medium.text-slate-500:first-child {
+    margin-bottom: 0.15rem;
+  }
+  .app-card > p.mt-2.inline-block.rounded-lg {
+    margin-top: 0.75rem !important;
+  }
+
+  /* Hero emphasis for the money-metric stat cards (Today's Sales, Total
+     Due — the two cards using the 'emerald'/'red' accent) so the KPIs that
+     matter most read as visually primary against the plain count cards
+     (Total Medicines, Home/Clinic Stock, Total Quantity). Layers on top of
+     the Phase 2A colored top-bar :has() rules already in place. */
+  .app-card:has(> p.mt-2.text-emerald-700),
+  .app-card:has(> p.mt-2.text-red-700) {
+    background-image: linear-gradient(165deg, transparent 0%, rgba(176,141,46,0.035) 100%);
+  }
+  .app-card:has(> p.mt-2.text-emerald-700) > p.mt-2,
+  .app-card:has(> p.mt-2.text-red-700) > p.mt-2 {
+    font-size: 2rem !important;
+  }
+
+  /* Secondary (count-only) stat cards stay visually quieter — slightly
+     smaller number than the hero money cards, reinforcing the hierarchy
+     rather than competing with it. */
+  .app-card:has(> p.mt-2.text-teal-700) > p.mt-2 {
+    font-size: 1.7rem !important;
+  }
+
+  /* Better composition: a faint internal divider between the stat-card
+     "header" (label) and "body" (number), echoing a real ledger row without
+     adding any markup. */
+  .app-card > p.text-sm.font-medium.text-slate-500:first-child {
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid rgba(231,226,216,0.7);
+  }
+
+  /* "View Patient-wise Due History" and similar secondary-action rows get
+     a touch more room to breathe above and below. */
+  .mt-4:has(> a.app-btn-secondary) {
+    margin-top: 1.5rem !important;
+    margin-bottom: 0.5rem;
+  }
+
+  /* Section sub-heading before a table (e.g. "Low Stock Alerts") gets a
+     little extra clearance from the stat grid above it. */
+  .mt-8:has(> h3.text-lg.font-bold.text-teal-700) {
+    margin-top: 2.5rem !important;
+  }
+
+  /* Empty-state row text ("All medicines are sufficiently stocked.") reads
+     a little more intentional — softened weight, a touch more padding. */
+  td.text-center.text-slate-400 {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+    font-style: italic;
+  }
+
+  @media (max-width: 480px) {
+    .grid.grid-cols-1.gap-4.sm\:grid-cols-2.lg\:grid-cols-3 { gap: 0.9rem; }
+    .app-card:has(> p.mt-2.text-emerald-700) > p.mt-2,
+    .app-card:has(> p.mt-2.text-red-700) > p.mt-2 { font-size: 1.65rem !important; }
+    .app-card:has(> p.mt-2.text-teal-700) > p.mt-2 { font-size: 1.5rem !important; }
+  }
+
+  /* Print receipt keeps neutral colors (defined inline in printReceipt). */
+</style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="printArea" style="display:none"></div>
+
+  <script>
+/* ==========================================================================
+   Shree RK iTeraHERTZ Care — Clinic Inventory (single-file version)
+   All data is stored in the browser's localStorage. No server needed.
+   ========================================================================== */
+
+const DB_KEY = 'rk_clinic_db_v1';
+const SESSION_KEY = 'rk_clinic_session_v1';
+const CATEGORIES = ['Tablet', 'Syrup', 'Oil', 'Toothpaste', 'Others'];
+
+/* ---------------------------- Storage layer ---------------------------- */
+
+function defaultDB() {
+  return {
+    admin: { username: 'admin', password: 'admin123', securityPin: '1234' },
+    medicines: [],
+    inventory: {},      // medicineId -> { homeStock, clinicStock, lastUpdated }
+    stockEntries: [],
+    stockEditHistory: [], // log of every stock-entry edit
+    sales: [],
+    salesReturns: [], // log of returned/refunded medicines
+    capitalEntries: [], // manual log of money the owner has put into the business
+    meta: { nextMedicineId: 1, nextStockId: 1, nextSaleId: 1, nextStockEditId: 1, nextCapitalId: 1, nextReturnId: 1, nextInvoiceNumber: 101 }
+  };
+}
+
+// Backfills fields for DBs created by older versions of this app, and
+// upgrades old single-medicine sale records into the new multi-item format
+// so existing sales history / reports / dues keep working correctly.
+function migrateDB(db) {
+  if (!db.admin) db.admin = { username: 'admin', password: 'admin123' };
+  if (!db.admin.securityPin) db.admin.securityPin = '1234';
+  if (!db.stockEditHistory) db.stockEditHistory = [];
+  if (!db.meta) db.meta = {};
+  if (!db.meta.nextStockEditId) db.meta.nextStockEditId = 1;
+  (db.medicines || []).forEach(m => { if (m.openingStock === undefined || m.openingStock === null) m.openingStock = 0; });
+  if (!db.meta.nextMedicineId) db.meta.nextMedicineId = 1;
+  if (!db.meta.nextStockId) db.meta.nextStockId = 1;
+  if (!db.meta.nextSaleId) db.meta.nextSaleId = 1;
+  if (!db.meta.nextCapitalId) db.meta.nextCapitalId = 1;
+  if (!db.capitalEntries) db.capitalEntries = [];
+  if (!db.salesReturns) db.salesReturns = [];
+  if (!db.meta.nextReturnId) db.meta.nextReturnId = 1;
+  if (!db.meta.nextInvoiceNumber) db.meta.nextInvoiceNumber = 101;
+
+  db.sales = (db.sales || []).map(s => {
+    if (s.items) return s; // already in new format
+    const lineTotal = (s.quantity || 0) * (s.sellingPrice || 0);
+    const item = { medicineId: s.medicineId, quantity: s.quantity, sellingPrice: s.sellingPrice, mrp: s.mrp, lineTotal };
+    const totalAmount = s.finalAmount != null ? s.finalAmount : Math.max(0, lineTotal - (s.discount || 0));
+    return {
+      id: s.id, date: s.date, patientName: s.patientName, saleType: s.saleType || 'Regular',
+      items: [item], discount: s.discount || 0, grossAmount: lineTotal,
+      totalAmount, paidAmount: totalAmount, dueAmount: 0,
+      paymentMode: s.paymentMode, notes: s.notes, createdAt: s.createdAt
+    };
+  });
+
+  // Backfill bill/invoice numbers for sales created before this feature
+  // existed, in chronological order, starting from wherever the counter
+  // currently is. Idempotent: sales that already have a number are skipped.
+  const needsInvoice = db.sales.filter(s => !s.invoiceNumber);
+  if (needsInvoice.length) {
+    const chronological = [...db.sales].sort((a, b) => (a.date + String(a.id).padStart(8, '0')).localeCompare(b.date + String(b.id).padStart(8, '0')));
+    let nextNum = db.meta.nextInvoiceNumber;
+    chronological.forEach(s => {
+      if (!s.invoiceNumber) { s.invoiceNumber = nextNum++; }
+      else { nextNum = Math.max(nextNum, s.invoiceNumber + 1); }
+    });
+    db.meta.nextInvoiceNumber = nextNum;
+  }
+
+  return db;
+}
+
+function loadDB() {
+  const raw = localStorage.getItem(DB_KEY);
+  if (!raw) {
+    const fresh = defaultDB();
+    saveDB(fresh);
+    return fresh;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    const migrated = migrateDB(parsed);
+    saveDB(migrated);
+    return migrated;
+  } catch (e) {
+    console.error('Corrupt data, resetting.', e);
+    const fresh = defaultDB();
+    saveDB(fresh);
+    return fresh;
+  }
+}
+
+function saveDB(db) {
+  localStorage.setItem(DB_KEY, JSON.stringify(db));
+}
+
+let DB = loadDB();
+
+/* ------------------------------- Helpers -------------------------------- */
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function fmtMoney(n) {
+  const num = Number(n) || 0;
+  return '<span class="amount">\u20B9' + num.toLocaleString('en-IN', { maximumFractionDigits: 2 }) + '</span>';
+}
+
+// Plain-text version of fmtMoney(), for contexts where HTML markup cannot
+// render and would otherwise leak as literal text: WhatsApp messages,
+// <option> element text, confirm()/alert() dialogs. Same number, same
+// formatting — just no <span> wrapper. Display-only, no calculation change.
+function fmtMoneyPlain(n) {
+  const num = Number(n) || 0;
+  return '\u20B9' + num.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+}
+
+// Display-only renaming: internally sales are still stored/checked as
+// 'Regular' and 'Sale 50%' (all Puji/profit logic and filters key off
+// those exact values) — this just changes what the user sees on screen.
+function saleTypeLabel(saleType) {
+  if (saleType === 'Sale 50%') return 'ID Sale';
+  if (saleType === 'Regular') return 'Patient Sale';
+  return saleType || 'Patient Sale';
+}
+
+function fmtDateTime(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  const diff = new Date(dateStr) - new Date(todayStr());
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+function getMedicine(id) {
+  return DB.medicines.find(m => String(m.id) === String(id));
+}
+
+function getInventory(medicineId) {
+  return DB.inventory[medicineId] || { homeStock: 0, clinicStock: 0, lastUpdated: null };
+}
+
+function totalStock(medicineId) {
+  const inv = getInventory(medicineId);
+  return (inv.homeStock || 0) + (inv.clinicStock || 0);
+}
+
+function stockStatus(medicineId, minAlert) {
+  const total = totalStock(medicineId);
+  if (total <= 0) return { label: 'Out of Stock', cls: 'badge-out' };
+  if (total <= minAlert) return { label: 'Low Stock', cls: 'badge-low' };
+  return { label: 'OK', cls: 'badge-ok' };
+}
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function toast(msg, isError) {
+  const el = document.createElement('div');
+  el.innerHTML = msg;   // amounts from fmtMoney() now contain <span> markup; names are pre-escaped where needed
+  el.style.cssText = `
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    z-index: 9999; border-radius: 12px; padding: 12px 20px; font-size: 14px; font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2); color: #fff; font-family: 'Inter', sans-serif;
+    background: ${isError ? '#B4453A' : '#12786D'};
+  `;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+/* -------------------------------- Auth ---------------------------------- */
+
+function isLoggedIn() {
+  const raw = localStorage.getItem(SESSION_KEY);
+  if (!raw) return false;
+  try {
+    const s = JSON.parse(raw);
+    return s.expiresAt > Date.now();
+  } catch { return false; }
+}
+
+function login(username, password) {
+  if (username === DB.admin.username && password === DB.admin.password) {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ expiresAt: Date.now() + 12 * 60 * 60 * 1000 }));
+    return true;
+  }
+  return false;
+}
+
+function logout() {
+  localStorage.removeItem(SESSION_KEY);
+  location.hash = '#/login';
+}
+
+/* -------------------------------- Router --------------------------------- */
+
+const NAV_LINKS = [
+  { hash: '#/dashboard', label: 'Dashboard', icon: '\u25A6' },
+  { hash: '#/medicines', label: 'Medicines', icon: '\u2695\uFE0F' },
+  { hash: '#/stock-entry', label: 'Stock Entry', icon: '\u2795' },
+  { hash: '#/inventory', label: 'Inventory', icon: '\uD83D\uDCE6' },
+  { hash: '#/sales', label: 'Patient Sell', icon: '\uD83D\uDCB0' },
+  { hash: '#/sale-50', label: 'ID Sale', icon: '\uD83C\uDFF7\uFE0F' },
+  { hash: '#/returns', label: 'Returns', icon: '\u21A9\uFE0F' },
+  { hash: '#/sales-history', label: 'Sales History', icon: '\uD83D\uDCC3' },
+  { hash: '#/patient-dues', label: 'Patient Dues', icon: '\uD83E\uDDFE' },
+  { hash: '#/capital', label: 'Puji (Capital)', icon: '\uD83D\uDCB5' },
+  { hash: '#/reports', label: 'Reports', icon: '\uD83D\uDCCA' },
+  { hash: '#/settings', label: 'Settings', icon: '\u2699\uFE0F' }
+];
+
+// Tracks which page we were on last, so item-carts for New Sale / Sale 50%
+// reset automatically whenever the user navigates to that page freshly,
+// but survive internal re-renders (adding/removing an item) that don't
+// go through the router.
+let lastPage = null;
+let autoBackupChecked = false;
+
+function route() {
+  const hash = location.hash || '#/dashboard';
+  const app = document.getElementById('app');
+
+  if (hash === '#/login') {
+    if (isLoggedIn()) { location.hash = '#/dashboard'; return; }
+    app.innerHTML = renderLogin();
+    attachLoginEvents();
+    return;
+  }
+
+  if (!isLoggedIn()) {
+    location.hash = '#/login';
+    return;
+  }
+
+  if (!autoBackupChecked) {
+    autoBackupChecked = true;
+    maybeAutoBackup();
+  }
+
+  const page = hash.replace('#/', '') || 'dashboard';
+
+  if (page !== lastPage) {
+    if (page === 'sales') { saleCart = []; saleDraft = { date: todayStr(), patient: '', phone: '', discount: 0, paid: '', paymentMode: 'Cash', notes: '' }; }
+    if (page === 'sale-50') { sale50Cart = []; sale50Draft = { date: todayStr(), patient: '', phone: '', paid: '', paymentMode: 'Cash', notes: '' }; }
+    if (page === 'returns') { selectedReturnSaleId = null; returnSearchQuery = ''; }
+  }
+  lastPage = page;
+
+  let content = '';
+  if (page === 'dashboard') content = renderDashboard();
+  else if (page === 'medicines') content = renderMedicines();
+  else if (page === 'stock-entry') content = renderStockEntry();
+  else if (page === 'inventory') content = renderInventory();
+  else if (page === 'sales') content = renderSales();
+  else if (page === 'sale-50') content = renderSale50();
+  else if (page === 'returns') content = renderReturns();
+  else if (page === 'sales-history') content = renderSalesHistory(typeof salesHistoryFilters !== 'undefined' ? salesHistoryFilters : undefined);
+  else if (page === 'patient-dues') content = renderPatientDues();
+  else if (page === 'capital') content = renderCapital();
+  else if (page === 'reports') content = renderReports();
+  else if (page === 'settings') content = renderSettings();
+  else content = renderDashboard();
+
+  app.innerHTML = renderShell(content, page);
+  attachShellEvents();
+
+  if (page === 'medicines') attachMedicinesEvents();
+  if (page === 'stock-entry') attachStockEntryEvents();
+  if (page === 'inventory') attachInventoryEvents();
+  if (page === 'sales') attachSalesEvents();
+  if (page === 'sale-50') attachSale50Events();
+  if (page === 'returns') attachReturnsEvents();
+  if (page === 'sales-history') attachSalesHistoryEvents();
+  if (page === 'patient-dues') attachPatientDuesEvents();
+  if (page === 'capital') attachCapitalEvents();
+  if (page === 'reports') attachReportsEvents();
+  if (page === 'settings') attachSettingsEvents();
+}
+
+window.addEventListener('hashchange', route);
+window.addEventListener('DOMContentLoaded', route);
+
+// Registers the service worker so the app becomes installable and works
+// fully offline once it's hosted online (e.g. GitHub Pages). On a plain
+// local file (file://) this silently does nothing — service workers
+// aren't allowed there — so the app keeps working exactly as before.
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch((err) => {
+      console.error('Service worker registration failed:', err);
+    });
+  });
+
+  // When a newer service worker takes over (e.g. after an update is
+  // deployed), reload once automatically so the tab is fully in sync —
+  // no manual hard-refresh needed.
+  let swRefreshed = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (swRefreshed) return;
+    swRefreshed = true;
+    location.reload();
+  });
+}
+
+// Safety net: if anything unexpected breaks, show it clearly instead of
+// silently doing nothing (native alert always works, no CSS needed).
+window.addEventListener('error', (e) => {
+  console.error('App error:', e.error || e.message);
+  alert('Something went wrong: ' + (e.message || 'Unknown error') + '\n\nPlease reload the page. If this keeps happening, tell Claude the exact message above.');
+});
+
+/* ------------------------------ Shared UI -------------------------------- */
+
+const BTN_PRIMARY = 'app-btn-primary inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-base font-semibold bg-teal-500 text-white hover:bg-teal-600 transition active:scale-95 disabled:opacity-50';
+const BTN_SECONDARY = 'app-btn-secondary inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-base font-semibold bg-white text-teal-700 border border-teal-200 hover:bg-teal-50 transition active:scale-95';
+const BTN_DANGER = 'app-btn-danger inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-red-600 text-white hover:bg-red-700 transition active:scale-95';
+const INPUT = 'app-input w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100';
+const LABEL = 'mb-1.5 block text-sm font-medium text-slate-600';
+const CARD = 'app-card rounded-2xl border border-slate-100 bg-white p-5 shadow-sm';
+
+function badgeHtml(label, cls) {
+  const map = { 'badge-ok': 'app-badge app-badge-ok bg-emerald-50 text-emerald-700', 'badge-low': 'app-badge app-badge-low bg-amber-50 text-amber-700', 'badge-out': 'app-badge app-badge-out bg-red-50 text-red-700' };
+  return `<span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${map[cls] || map['badge-ok']}">${label}</span>`;
+}
+
+function tableWrap(inner) {
+  return `<div class="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm"><table class="w-full text-left text-sm" style="min-width:640px">${inner}</table></div>`;
+}
+
+// Shown on Stock Entry / Inventory / Sales / Sales History pages whenever
+// there are no (active) medicines yet, so the user isn't stuck wondering
+// why a dropdown or list is empty.
+function noMedicinesBanner(message) {
+  return `
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+      <p class="text-sm font-medium text-amber-800">${message || 'Abhi tak koi medicine add nahi hui hai. Pehle ek medicine add karein, tabhi yahan use select kar payenge.'}</p>
+      <a href="#/medicines" class="${BTN_PRIMARY}">+ Add Medicine</a>
+    </div>`;
+}
+
+// Reusable 4-digit PIN gate used before sensitive actions: editing/deleting
+// a medicine, or editing inventory stock numbers directly. Renders a small
+// overlay modal; calls onSuccess() only if the entered PIN matches.
+function askForPin(onSuccess, title) {
+  const existing = document.getElementById('pinModalOverlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'pinModalOverlay';
+  overlay.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4';
+  overlay.innerHTML = `
+    <div class="w-full max-w-xs rounded-2xl bg-white p-6 shadow-xl">
+      <h3 class="mb-1 text-lg font-bold text-teal-700">${title || 'Enter Security PIN'}</h3>
+      <p class="mb-3 text-sm text-slate-500">Yeh action protect kiya gaya hai.</p>
+      <input id="pinInput" type="password" inputmode="numeric" maxlength="4" class="${INPUT} text-center text-2xl tracking-widest" placeholder="\u2022\u2022\u2022\u2022" autofocus />
+      <p id="pinError" class="mt-2 text-sm font-medium text-red-600" style="display:none">Galat PIN. Dobara try karein.</p>
+      <div class="mt-4 flex gap-3">
+        <button id="pinCancelBtn" type="button" class="${BTN_SECONDARY} flex-1">Cancel</button>
+        <button id="pinConfirmBtn" type="button" class="${BTN_PRIMARY} flex-1">Confirm</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const input = document.getElementById('pinInput');
+  input.focus();
+
+  function cleanup() { overlay.remove(); }
+
+  document.getElementById('pinCancelBtn').addEventListener('click', cleanup);
+
+  function tryConfirm() {
+    const val = input.value.trim();
+    if (val === DB.admin.securityPin) {
+      cleanup();
+      onSuccess();
+    } else {
+      document.getElementById('pinError').style.display = 'block';
+      input.value = '';
+      input.focus();
+    }
+  }
+  document.getElementById('pinConfirmBtn').addEventListener('click', tryConfirm);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); tryConfirm(); } });
+}
+
+/* -------------------------- Automatic / Assisted Backup --------------------------- */
+// A plain webpage can never silently attach-and-send a file into WhatsApp —
+// that's a WhatsApp/OS security boundary, not something any app can bypass.
+// What we CAN do without any clicks: drop a fresh backup file into
+// Downloads once a day automatically. And on a computer (Chrome/Edge),
+// the File System Access API lets the owner "connect" one file once, after
+// which we silently overwrite that same file every day — true auto-save,
+// no repeated downloads. A Share button covers phones that support it.
+
+const BACKUP_HANDLE_DB = 'rk_clinic_backup_handle_db';
+const BACKUP_HANDLE_STORE = 'handles';
+const LAST_AUTOBACKUP_KEY = 'rk_clinic_last_autobackup';
+
+function openHandleDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(BACKUP_HANDLE_DB, 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore(BACKUP_HANDLE_STORE); };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveBackupFileHandle(handle) {
+  try {
+    const db = await openHandleDB();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(BACKUP_HANDLE_STORE, 'readwrite');
+      tx.objectStore(BACKUP_HANDLE_STORE).put(handle, 'backupFile');
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) { console.error('Could not save backup file handle', e); }
+}
+
+async function loadBackupFileHandle() {
+  try {
+    const db = await openHandleDB();
+    return await new Promise((resolve) => {
+      const tx = db.transaction(BACKUP_HANDLE_STORE, 'readonly');
+      const req = tx.objectStore(BACKUP_HANDLE_STORE).get('backupFile');
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+  } catch { return null; }
+}
+
+// Lets the user pick (or create) one file, one time. From then on we can
+// silently write to that exact file without asking again this session.
+async function connectBackupFile() {
+  if (!window.showSaveFilePicker) {
+    toast('Yeh feature sirf computer/laptop ke Chrome ya Edge browser mein available hai.', true);
+    return;
+  }
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: 'shree-rk-clinic-backup.json',
+      types: [{ description: 'JSON Backup', accept: { 'application/json': ['.json'] } }]
+    });
+    await saveBackupFileHandle(handle);
+    await writeBackupToHandle(handle);
+    toast('Backup file connect ho gayi. Ab har din yahi file khud update hogi.');
+  } catch (err) {
+    if (err.name !== 'AbortError') toast('Backup file connect nahi ho payi: ' + err.message, true);
+  }
+}
+
+async function writeBackupToHandle(handle) {
+  try {
+    let permission = await handle.queryPermission({ mode: 'readwrite' });
+    if (permission !== 'granted') permission = await handle.requestPermission({ mode: 'readwrite' });
+    if (permission !== 'granted') return false;
+    const writable = await handle.createWritable();
+    await writable.write(JSON.stringify(DB, null, 2));
+    await writable.close();
+    return true;
+  } catch (e) {
+    console.error('Could not write to connected backup file', e);
+    return false;
+  }
+}
+
+function downloadBackupFile() {
+  const blob = new Blob([JSON.stringify(DB, null, 2)], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `shree-rk-clinic-backup-${todayStr()}.json`;
+  link.click();
+}
+
+// Runs once per calendar day right after login: silently overwrites the
+// connected file if one exists, otherwise triggers a normal Downloads-folder
+// backup — either way, no click needed.
+async function maybeAutoBackup() {
+  const last = localStorage.getItem(LAST_AUTOBACKUP_KEY);
+  const today = todayStr();
+  if (last === today) return;
+
+  const handle = await loadBackupFileHandle();
+  let wroteToHandle = false;
+  if (handle) wroteToHandle = await writeBackupToHandle(handle);
+  if (!wroteToHandle) downloadBackupFile();
+
+  localStorage.setItem(LAST_AUTOBACKUP_KEY, today);
+}
+
+// One-tap share to WhatsApp/Drive/Email/etc, where the phone's browser
+// supports it (Android Chrome mostly; not guaranteed everywhere).
+async function shareBackupFile() {
+  if (!navigator.share) {
+    toast('Is browser mein "Share" feature available nahi hai. "Download Backup" use karein.', true);
+    return;
+  }
+  const blob = new Blob([JSON.stringify(DB, null, 2)], { type: 'application/json' });
+  const file = new File([blob], `shree-rk-clinic-backup-${todayStr()}.json`, { type: 'application/json' });
+  try {
+    if (navigator.canShare && !navigator.canShare({ files: [file] })) {
+      toast('Is browser mein file share support nahi hai. "Download Backup" use karein.', true);
+      return;
+    }
+    await navigator.share({ files: [file], title: 'Clinic Backup', text: 'Shree RK iTeraHERTZ Care - Data Backup' });
+  } catch (err) {
+    if (err.name !== 'AbortError') toast('Share nahi ho paya: ' + err.message, true);
+  }
+}
+
+/* -------------------------------- Shell ----------------------------------- */
+
+function renderShell(content, activePage) {
+  const navItems = NAV_LINKS.map(l => {
+    const isActive = ('#/' + activePage) === l.hash;
+    return `
+      <a href="${l.hash}" class="flex items-center gap-3 rounded-xl px-3 py-3 text-base font-medium transition ${isActive ? 'app-navlink-active bg-white text-teal-700' : 'app-navlink text-teal-50 hover:bg-teal-600'}">
+        <span class="text-lg">${l.icon}</span>${l.label}
+      </a>`;
+  }).join('');
+
+  return `
+    <div class="flex min-h-screen bg-gray-50">
+      <div class="app-sidebar hidden w-64 shrink-0 md:block bg-teal-700 text-white md:sticky md:top-0 md:h-screen md:overflow-y-auto">
+        <div class="flex h-full flex-col">
+          <div class="px-5 py-6">
+            <h1 class="text-lg font-extrabold leading-tight">Shree RK</h1>
+            <p class="text-sm font-medium text-teal-100">iTeraHERTZ Care</p>
+          </div>
+          <nav class="flex-1 space-y-1 px-3">${navItems}</nav>
+          <div class="border-t border-teal-600 px-5 py-4">
+            <p class="mb-2 truncate text-sm text-teal-100">Signed in as ${escapeHtml(DB.admin.username)}</p>
+            <button id="logoutBtn" class="app-btn-sidebar w-full rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold hover:bg-teal-500">Log Out</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="mobileDrawer" class="fixed inset-0 z-40 md:hidden" style="display:none">
+        <div id="mobileOverlay" class="absolute inset-0 bg-black/40"></div>
+        <div class="app-sidebar absolute left-0 top-0 h-full w-64 bg-teal-700 text-white flex flex-col">
+          <div class="px-5 py-6">
+            <h1 class="text-lg font-extrabold leading-tight">Shree RK</h1>
+            <p class="text-sm font-medium text-teal-100">iTeraHERTZ Care</p>
+          </div>
+          <nav class="flex-1 space-y-1 px-3">${navItems}</nav>
+          <div class="border-t border-teal-600 px-5 py-4">
+            <button id="logoutBtnMobile" class="app-btn-sidebar w-full rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold hover:bg-teal-500">Log Out</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex min-w-0 flex-1 flex-col">
+        <header class="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 md:hidden sticky top-0 z-30">
+          <button id="openMenuBtn" class="rounded-lg p-2 text-teal-700 hover:bg-teal-50" aria-label="Open menu">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round" /></svg>
+          </button>
+          <span class="font-bold text-teal-700">Shree RK iTeraHERTZ Care</span>
+        </header>
+        <main class="flex-1 p-4 pb-16 md:p-8">${content}</main>
+      </div>
+    </div>`;
+}
+
+function attachShellEvents() {
+  const logoutBtn = document.getElementById('logoutBtn');
+  const logoutBtnMobile = document.getElementById('logoutBtnMobile');
+  if (logoutBtn) logoutBtn.addEventListener('click', logout);
+  if (logoutBtnMobile) logoutBtnMobile.addEventListener('click', logout);
+
+  const openMenuBtn = document.getElementById('openMenuBtn');
+  const drawer = document.getElementById('mobileDrawer');
+  const overlay = document.getElementById('mobileOverlay');
+  if (openMenuBtn) openMenuBtn.addEventListener('click', () => { drawer.style.display = 'block'; });
+  if (overlay) overlay.addEventListener('click', () => { drawer.style.display = 'none'; });
+}
+
+/* -------------------------------- Login ------------------------------------ */
+
+function renderLogin() {
+  return `
+    <div class="flex min-h-screen items-center justify-center bg-teal-700 px-4">
+      <div class="w-full max-w-sm rounded-2xl bg-white p-8 shadow-xl">
+        <div class="mb-6 text-center">
+          <h1 class="text-2xl font-extrabold text-teal-700">Shree RK</h1>
+          <p class="text-sm font-medium text-slate-500">iTeraHERTZ Care &mdash; Clinic Inventory</p>
+        </div>
+        <form id="loginForm" class="space-y-4">
+          <div>
+            <label class="${LABEL}">Username</label>
+            <input id="loginUsername" class="${INPUT}" autofocus required />
+          </div>
+          <div>
+            <label class="${LABEL}">Password</label>
+            <input id="loginPassword" type="password" class="${INPUT}" required />
+          </div>
+          <p id="loginError" class="text-sm font-medium text-red-600" style="display:none"></p>
+          <button type="submit" class="${BTN_PRIMARY} w-full">Log In</button>
+        </form>
+        <p class="mt-4 text-center text-xs text-slate-400">Default login: admin / admin123 (change it from Settings after logging in)</p>
+      </div>
+    </div>`;
+}
+
+function attachLoginEvents() {
+  document.getElementById('loginForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const u = document.getElementById('loginUsername').value.trim();
+    const p = document.getElementById('loginPassword').value;
+    const errEl = document.getElementById('loginError');
+    if (login(u, p)) {
+      location.hash = '#/dashboard';
+    } else {
+      errEl.textContent = 'Incorrect username or password.';
+      errEl.style.display = 'block';
+    }
+  });
+}
+
+/* ------------------------------ Dashboard ---------------------------------- */
+
+function renderDashboard() {
+  // NOTE: intentionally NOT filtered to only 'Active' medicines here — this
+  // must always match what the Medicines/Inventory pages show, otherwise
+  // the dashboard can look "empty" even when real data exists.
+  const allMedicines = DB.medicines;
+  let totalHome = 0, totalClinic = 0;
+  allMedicines.forEach(m => {
+    const inv = getInventory(m.id);
+    totalHome += inv.homeStock || 0;
+    totalClinic += inv.clinicStock || 0;
+  });
+
+  const today = todayStr();
+  const todaysSales = DB.sales.filter(s => s.date === today).reduce((sum, s) => sum + s.totalAmount, 0);
+  const lowStock = allMedicines.filter(m => totalStock(m.id) <= m.minStockAlert);
+  const totalDue = DB.sales.reduce((sum, s) => sum + (s.dueAmount || 0), 0);
+
+  function statCard(label, value, accent) {
+    const accentClasses = { brand: 'text-teal-700 bg-teal-50', amber: 'text-amber-700 bg-amber-50', emerald: 'text-emerald-700 bg-emerald-50', red: 'text-red-700 bg-red-50' };
+    return `<div class="${CARD}"><p class="text-sm font-medium text-slate-500">${label}</p>
+      <p class="mt-2 inline-block rounded-lg px-2 py-1 text-3xl font-extrabold ${accentClasses[accent] || accentClasses.brand}">${value}</p></div>`;
+  }
+
+  const lowStockRows = lowStock.length ? lowStock.map(m => `
+    <tr><td class="font-medium">${escapeHtml(m.name)}</td>
+      <td>${badgeHtml(totalStock(m.id) <= 0 ? 'Out of Stock' : String(totalStock(m.id)), totalStock(m.id) <= 0 ? 'badge-out' : 'badge-low')}</td>
+      <td>${m.minStockAlert}</td></tr>`).join('')
+    : `<tr><td colspan="3" class="py-6 text-center text-slate-400">All medicines are sufficiently stocked.</td></tr>`;
+
+  return `
+    <h2 class="mb-6 text-2xl font-extrabold text-teal-700">Dashboard</h2>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      ${statCard('Total Medicines', allMedicines.length)}
+      ${statCard('Total Home Stock', totalHome)}
+      ${statCard('Total Clinic Stock', totalClinic)}
+      ${statCard('Total Quantity', totalHome + totalClinic)}
+      ${statCard("Today's Sales", fmtMoney(todaysSales), 'emerald')}
+      ${statCard('Low Stock Medicines', lowStock.length, 'amber')}
+      ${statCard('Total Due (All Patients)', fmtMoney(totalDue), 'red')}
+    </div>
+
+    <div class="mt-4">
+      <a href="#/patient-dues" class="${BTN_SECONDARY}">View Patient-wise Due History &rarr;</a>
+    </div>
+
+    <div class="mt-8">
+      <h3 class="mb-3 text-lg font-bold text-teal-700">Low Stock Alerts</h3>
+      ${tableWrap(`<thead><tr class="app-table-head bg-teal-50"><th class="px-4 py-3 font-semibold text-teal-700">Medicine</th><th class="px-4 py-3 font-semibold text-teal-700">Current Stock</th><th class="px-4 py-3 font-semibold text-teal-700">Min Alert Level</th></tr></thead><tbody class="std-tbody">${lowStockRows}</tbody>`)}
+    </div>`;
+}
+
+/* ------------------------------- Medicines ---------------------------------- */
+
+function renderMedicines() {
+  const rows = DB.medicines.length ? DB.medicines.map(m => {
+    const st = stockStatus(m.id, m.minStockAlert);
+    return `
+      <tr>
+        <td class="font-medium">${escapeHtml(m.name)}</td>
+        <td>${m.category}</td>
+        <td>${fmtMoney(m.purchasePrice)}</td>
+        <td>${fmtMoney(m.mrp)}</td>
+        <td>${m.minStockAlert}</td>
+        <td>${badgeHtml(m.status, m.status === 'Active' ? 'badge-ok' : 'badge-out')}</td>
+        <td class="whitespace-nowrap space-x-2">
+          <button data-edit="${m.id}" class="font-semibold text-teal-600 hover:underline">Edit</button>
+          <button data-delete="${m.id}" class="font-semibold text-red-600 hover:underline">Delete</button>
+        </td>
+      </tr>`;
+  }).join('') : `<tr><td colspan="7" class="py-8 text-center text-slate-400">No medicines added yet.</td></tr>`;
+
+  return `
+    <div class="mb-6 flex items-center justify-between">
+      <h2 class="text-2xl font-extrabold text-teal-700">Medicines</h2>
+      <button id="addMedicineBtn" class="${BTN_PRIMARY}">+ Add Medicine</button>
+    </div>
+    <p class="mb-4 text-sm text-slate-500">Edit ya Delete karne ke liye 4-digit security PIN maanga jayega.</p>
+    ${tableWrap(`
+      <thead><tr class="app-table-head bg-teal-50">
+        <th class="px-4 py-3 font-semibold text-teal-700">Name</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Category</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Purchase Price</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">MRP</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Min Stock Alert</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Status</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Actions</th>
+      </tr></thead>
+      <tbody class="std-tbody">${rows}</tbody>
+    `)}
+    <div id="medicineModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" style="display:none">
+      <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl overflow-y-auto" style="max-height:90vh">
+        <h3 id="medicineModalTitle" class="mb-4 text-xl font-bold text-teal-700">Add Medicine</h3>
+        <form id="medicineForm" class="space-y-4">
+          <input type="hidden" id="medicineId" />
+          <div>
+            <label class="${LABEL}">Medicine Name</label>
+            <input id="medName" class="${INPUT}" required />
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="${LABEL}">Category</label>
+              <select id="medCategory" class="${INPUT}">${CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}</select>
+            </div>
+            <div>
+              <label class="${LABEL}">Status</label>
+              <select id="medStatus" class="${INPUT}"><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="${LABEL}">Purchase Price (&#8377;)</label>
+              <input id="medPurchasePrice" type="number" step="0.01" min="0" class="${INPUT}" required />
+              <button type="button" id="medPurchaseHalfBtn" class="mt-1 text-xs font-semibold text-teal-600 hover:underline">= 50% of MRP</button>
+            </div>
+            <div>
+              <label class="${LABEL}">MRP (&#8377;)</label>
+              <input id="medMrp" type="number" step="0.01" min="0" class="${INPUT}" required />
+            </div>
+          </div>
+          <p class="text-xs text-slate-400">Purchase Price MRP ka 50% pe naya medicine add karte time apne aap bhar jaata hai (agar tumhara standard margin yahi hai). Kisi dawa ka margin alag ho to Purchase Price manually badal sakte ho.</p>
+          <div>
+            <label class="${LABEL}">Minimum Stock Alert</label>
+            <input id="medMinStock" type="number" min="0" class="${INPUT}" required />
+          </div>
+          <div>
+            <label class="${LABEL}">Opening Stock (Total, Is App Se Pehle Ka) &mdash; Optional</label>
+            <input id="medOpeningStock" type="number" min="0" class="${INPUT}" value="0" />
+            <p class="mt-1 text-xs text-slate-400">Agar clinic shuru se (jaise April se) is app ka use nahi ho raha tha, to yahan bataiye ki tab tak total kitni is medicine ki quantity kabhi bhi purchase ki gayi thi (chahe wo ab bik chuki ho ya stock mein ho). Isse Reports &rarr; Stock Ledger ka "Total Purchased" sahi aayega. Current Home/Clinic stock is field se bilkul affect nahi hota.</p>
+          </div>
+          <p id="medicineError" class="text-sm font-medium text-red-600" style="display:none"></p>
+          <div class="flex gap-3 pt-2">
+            <button type="button" id="medicineCancelBtn" class="${BTN_SECONDARY} flex-1">Cancel</button>
+            <button type="submit" class="${BTN_PRIMARY} flex-1">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>`;
+}
+
+function openMedicineModal(medicine) {
+  document.getElementById('medicineModal').style.display = 'flex';
+  document.getElementById('medicineError').style.display = 'none';
+  document.getElementById('medicineModalTitle').textContent = medicine ? 'Edit Medicine' : 'Add Medicine';
+  document.getElementById('medicineId').value = medicine ? medicine.id : '';
+  document.getElementById('medName').value = medicine ? medicine.name : '';
+  document.getElementById('medCategory').value = medicine ? medicine.category : 'Tablet';
+  document.getElementById('medStatus').value = medicine ? medicine.status : 'Active';
+  document.getElementById('medPurchasePrice').value = medicine ? medicine.purchasePrice : '';
+  document.getElementById('medMrp').value = medicine ? medicine.mrp : '';
+  document.getElementById('medMinStock').value = medicine ? medicine.minStockAlert : '';
+  document.getElementById('medOpeningStock').value = medicine ? (medicine.openingStock || 0) : 0;
+}
+
+function closeMedicineModal() {
+  document.getElementById('medicineModal').style.display = 'none';
+}
+
+function attachMedicinesEvents() {
+  document.getElementById('addMedicineBtn').addEventListener('click', () => openMedicineModal(null));
+  document.getElementById('medicineCancelBtn').addEventListener('click', closeMedicineModal);
+
+  // While adding a NEW medicine, Purchase Price auto-fills to 50% of MRP as
+  // you type (most clinics buy at roughly half of MRP). It only auto-fills
+  // when adding — never silently overwrites Purchase Price while editing an
+  // existing medicine, since that price may have been set deliberately.
+  document.getElementById('medMrp').addEventListener('input', () => {
+    const isNewMedicine = !document.getElementById('medicineId').value;
+    if (!isNewMedicine) return;
+    const mrp = Number(document.getElementById('medMrp').value);
+    if (!isNaN(mrp) && mrp > 0) {
+      document.getElementById('medPurchasePrice').value = (mrp / 2).toFixed(2);
+    }
+  });
+
+  // Works any time (add or edit): explicitly set Purchase Price to 50% of
+  // whatever MRP currently is.
+  document.getElementById('medPurchaseHalfBtn').addEventListener('click', () => {
+    const mrp = Number(document.getElementById('medMrp').value);
+    if (!mrp) { toast('Pehle MRP bharein.', true); return; }
+    document.getElementById('medPurchasePrice').value = (mrp / 2).toFixed(2);
+  });
+
+  document.querySelectorAll('[data-edit]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      askForPin(() => openMedicineModal(getMedicine(btn.dataset.edit)), 'Enter PIN to Edit Medicine');
+    });
+  });
+  document.querySelectorAll('[data-delete]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      askForPin(() => deleteMedicine(btn.dataset.delete), 'Enter PIN to Delete Medicine');
+    });
+  });
+
+  document.getElementById('medicineForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById('medicineError');
+    const id = document.getElementById('medicineId').value;
+    const name = document.getElementById('medName').value.trim();
+    const category = document.getElementById('medCategory').value;
+    const status = document.getElementById('medStatus').value;
+    const purchasePrice = Number(document.getElementById('medPurchasePrice').value);
+    const mrp = Number(document.getElementById('medMrp').value);
+    const minStockAlert = Number(document.getElementById('medMinStock').value);
+    const openingStock = Number(document.getElementById('medOpeningStock').value) || 0;
+
+    if (!name) { errEl.textContent = 'Medicine name is required.'; errEl.style.display = 'block'; return; }
+    if (isNaN(purchasePrice) || purchasePrice < 0 || isNaN(mrp) || mrp < 0 || isNaN(minStockAlert) || minStockAlert < 0) {
+      errEl.textContent = 'Prices and stock alert must be valid non-negative numbers.'; errEl.style.display = 'block'; return;
+    }
+    if (openingStock < 0) { errEl.textContent = 'Opening Stock cannot be negative.'; errEl.style.display = 'block'; return; }
+
+    if (id) {
+      const med = getMedicine(id);
+      Object.assign(med, { name, category, status, purchasePrice, mrp, minStockAlert, openingStock });
+    } else {
+      const newId = DB.meta.nextMedicineId++;
+      DB.medicines.push({ id: newId, name, category, status, purchasePrice, mrp, minStockAlert, openingStock, createdAt: new Date().toISOString() });
+      DB.inventory[newId] = { homeStock: 0, clinicStock: 0, lastUpdated: null };
+    }
+    saveDB(DB);
+    closeMedicineModal();
+    toast('Medicine saved.');
+    route();
+  });
+}
+
+function deleteMedicine(id) {
+  const usedInStock = DB.stockEntries.some(e => String(e.medicineId) === String(id));
+  const usedInSales = DB.sales.some(s => (s.items || []).some(it => String(it.medicineId) === String(id)));
+
+  let msg = 'Delete this medicine? This cannot be undone.';
+  if (usedInStock || usedInSales) {
+    msg = 'Is medicine ki stock entries ya sales history maujood hai.\n\nDelete karne par: purani stock entries aur sales history mein iska naam "(deleted)" dikhega, lekin quantities aur amounts bilkul safe rahenge, kuch bhi hisaab se hatega nahi.\n\n(Agar sirf naya sale/stock rokna hai but purana record clean naam ke saath rakhna hai, to "Delete" ki jagah is medicine ko "Inactive" mark karna behtar rahega.)\n\nKya aap sach mein is medicine ko delete karna chahte hain?';
+  }
+  if (!confirm(msg)) return;
+
+  DB.medicines = DB.medicines.filter(m => String(m.id) !== String(id));
+  delete DB.inventory[id];
+  saveDB(DB);
+  toast('Medicine deleted.');
+  route();
+}
+
+/* ------------------------------- Stock Entry --------------------------------- */
+
+function renderStockEntry() {
+  const activeMeds = DB.medicines.filter(m => m.status === 'Active');
+  const history = [...DB.stockEntries].sort((a, b) => (b.date + b.id).localeCompare(a.date + a.id));
+
+  const options = activeMeds.map(m => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('');
+  const rows = history.length ? history.map(h => {
+    const med = getMedicine(h.medicineId);
+    return `<tr data-stockrow="${h.id}">
+      <td data-cell="date">${h.date}</td><td class="font-medium">${med ? escapeHtml(med.name) : '(deleted)'}</td>
+      <td data-cell="home">${h.homeQty}</td><td data-cell="clinic">${h.clinicQty}</td><td class="font-semibold" data-cell="total">${h.totalQty}</td>
+      <td class="text-slate-500" data-cell="notes">${escapeHtml(h.notes || '-')}</td>
+      <td><button data-editentry="${h.id}" class="font-semibold text-teal-600 hover:underline">Edit</button></td></tr>`;
+  }).join('') : `<tr><td colspan="7" class="py-8 text-center text-slate-400">No stock entries yet.</td></tr>`;
+
+  const editHistory = [...DB.stockEditHistory].sort((a, b) => b.editedAt.localeCompare(a.editedAt));
+  const editHistoryRows = editHistory.length ? editHistory.map(h => `
+    <tr>
+      <td>${fmtDateTime(h.editedAt)}</td><td class="font-medium">${escapeHtml(h.medicineName)}</td>
+      <td>${h.before.date} &rarr; ${h.after.date}</td>
+      <td>${h.before.homeQty} &rarr; ${h.after.homeQty}</td>
+      <td>${h.before.clinicQty} &rarr; ${h.after.clinicQty}</td>
+      <td class="text-slate-500">${escapeHtml(h.before.notes || '-')} &rarr; ${escapeHtml(h.after.notes || '-')}</td>
+    </tr>`).join('') : `<tr><td colspan="6" class="py-6 text-center text-slate-400">Koi edit history nahi hai.</td></tr>`;
+
+  return `
+    <h2 class="mb-6 text-2xl font-extrabold text-teal-700">Stock Entry</h2>
+    ${activeMeds.length === 0 ? noMedicinesBanner('Stock entry karne se pehle "Medicines" page se dawa add karein.') : ''}
+    <div class="${CARD} mb-8 max-w-xl">
+      <form id="stockForm" class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div><label class="${LABEL}">Date</label><input id="stockDate" type="date" class="${INPUT}" value="${todayStr()}" required /></div>
+          <div><label class="${LABEL}">Medicine</label><select id="stockMedicine" class="${INPUT}" required><option value="">Select medicine</option>${options}</select></div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div><label class="${LABEL}">Home Quantity</label><input id="stockHomeQty" type="number" min="0" class="${INPUT}" required /></div>
+          <div><label class="${LABEL}">Clinic Quantity</label><input id="stockClinicQty" type="number" min="0" class="${INPUT}" required /></div>
+        </div>
+        <p class="text-sm font-medium text-slate-500">Total Quantity Received: <span id="stockTotalPreview" class="font-bold text-teal-700">0</span></p>
+        <div><label class="${LABEL}">Notes (Optional)</label><input id="stockNotes" class="${INPUT}" /></div>
+        <p id="stockError" class="text-sm font-medium text-red-600" style="display:none"></p>
+        <button type="submit" class="${BTN_PRIMARY} w-full">Save Stock Entry</button>
+      </form>
+    </div>
+    <h3 class="mb-3 text-lg font-bold text-teal-700">Stock Entry History</h3>
+    <p class="mb-3 text-sm text-slate-500">Galti se galat quantity daal di? "Edit" par click karke sahi karein &mdash; inventory apne aap adjust ho jayegi aur neeche edit history mein record ban jayega.</p>
+    ${tableWrap(`
+      <thead><tr class="app-table-head bg-teal-50">
+        <th class="px-4 py-3 font-semibold text-teal-700">Date</th><th class="px-4 py-3 font-semibold text-teal-700">Medicine</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Home Qty</th><th class="px-4 py-3 font-semibold text-teal-700">Clinic Qty</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Total Qty</th><th class="px-4 py-3 font-semibold text-teal-700">Notes</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Action</th>
+      </tr></thead>
+      <tbody class="std-tbody">${rows}</tbody>
+    `)}
+    <h3 class="mb-3 mt-8 text-lg font-bold text-teal-700">Stock Edit History</h3>
+    ${tableWrap(`
+      <thead><tr class="app-table-head bg-teal-50">
+        <th class="px-4 py-3 font-semibold text-teal-700">Edited On</th><th class="px-4 py-3 font-semibold text-teal-700">Medicine</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Date</th><th class="px-4 py-3 font-semibold text-teal-700">Home Qty</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Clinic Qty</th><th class="px-4 py-3 font-semibold text-teal-700">Notes</th>
+      </tr></thead>
+      <tbody class="std-tbody">${editHistoryRows}</tbody>
+    `)}`;
+}
+
+function attachStockEntryEvents() {
+  const homeInput = document.getElementById('stockHomeQty');
+  const clinicInput = document.getElementById('stockClinicQty');
+  const preview = document.getElementById('stockTotalPreview');
+  function updatePreview() {
+    preview.textContent = (Number(homeInput.value) || 0) + (Number(clinicInput.value) || 0);
+  }
+  homeInput.addEventListener('input', updatePreview);
+  clinicInput.addEventListener('input', updatePreview);
+
+  document.getElementById('stockForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById('stockError');
+    const date = document.getElementById('stockDate').value;
+    const medicineId = document.getElementById('stockMedicine').value;
+    const home = Number(homeInput.value);
+    const clinic = Number(clinicInput.value);
+    const notes = document.getElementById('stockNotes').value.trim();
+
+    if (!medicineId) { errEl.textContent = 'Please select a medicine.'; errEl.style.display = 'block'; return; }
+    if (isNaN(home) || home < 0 || isNaN(clinic) || clinic < 0 || (home + clinic) <= 0) {
+      errEl.textContent = 'Enter a valid home and clinic quantity (total must be greater than zero).';
+      errEl.style.display = 'block'; return;
+    }
+
+    const id = DB.meta.nextStockId++;
+    DB.stockEntries.push({ id, date, medicineId, homeQty: home, clinicQty: clinic, totalQty: home + clinic, notes, createdAt: new Date().toISOString() });
+
+    const inv = DB.inventory[medicineId] || { homeStock: 0, clinicStock: 0 };
+    inv.homeStock = (inv.homeStock || 0) + home;
+    inv.clinicStock = (inv.clinicStock || 0) + clinic;
+    inv.lastUpdated = new Date().toISOString();
+    DB.inventory[medicineId] = inv;
+
+    saveDB(DB);
+    toast('Stock entry saved and inventory updated.');
+    route();
+  });
+
+  document.querySelectorAll('[data-editentry]').forEach(btn => {
+    btn.addEventListener('click', () => enableStockEntryEdit(btn.dataset.editentry));
+  });
+}
+
+function enableStockEntryEdit(entryId) {
+  const entry = DB.stockEntries.find(e => String(e.id) === String(entryId));
+  if (!entry) return;
+  const row = document.querySelector(`tr[data-stockrow="${entryId}"]`);
+  const dateCell = row.querySelector('[data-cell="date"]');
+  const homeCell = row.querySelector('[data-cell="home"]');
+  const clinicCell = row.querySelector('[data-cell="clinic"]');
+  const notesCell = row.querySelector('[data-cell="notes"]');
+  const actionCell = row.querySelector('td:last-child');
+
+  dateCell.innerHTML = `<input type="date" class="${INPUT} py-1.5" id="editEntryDate${entryId}" value="${entry.date}" />`;
+  homeCell.innerHTML = `<input type="number" min="0" class="${INPUT} py-1.5" id="editEntryHome${entryId}" value="${entry.homeQty}" />`;
+  clinicCell.innerHTML = `<input type="number" min="0" class="${INPUT} py-1.5" id="editEntryClinic${entryId}" value="${entry.clinicQty}" />`;
+  notesCell.innerHTML = `<input class="${INPUT} py-1.5" id="editEntryNotes${entryId}" value="${escapeHtml(entry.notes || '')}" />`;
+  actionCell.innerHTML = `<button data-saveentry="${entryId}" class="font-semibold text-teal-600 hover:underline mr-2">Save</button><button data-cancelentry="${entryId}" class="font-semibold text-slate-500 hover:underline">Cancel</button>`;
+
+  document.querySelector(`[data-saveentry="${entryId}"]`).addEventListener('click', () => {
+    const newDate = document.getElementById(`editEntryDate${entryId}`).value;
+    const newHome = Number(document.getElementById(`editEntryHome${entryId}`).value);
+    const newClinic = Number(document.getElementById(`editEntryClinic${entryId}`).value);
+    const newNotes = document.getElementById(`editEntryNotes${entryId}`).value.trim();
+    if (isNaN(newHome) || newHome < 0 || isNaN(newClinic) || newClinic < 0 || (newHome + newClinic) <= 0) {
+      toast('Valid home aur clinic quantity dalein (total zero se zyada ho).', true);
+      return;
+    }
+    saveStockEntryEdit(entryId, newHome, newClinic, newNotes, newDate);
+  });
+  document.querySelector(`[data-cancelentry="${entryId}"]`).addEventListener('click', () => route());
+}
+
+function saveStockEntryEdit(entryId, newHome, newClinic, newNotes, newDate) {
+  const entry = DB.stockEntries.find(e => String(e.id) === String(entryId));
+  if (!entry) return;
+  const before = { homeQty: entry.homeQty, clinicQty: entry.clinicQty, notes: entry.notes, date: entry.date };
+  const medicineId = entry.medicineId;
+  const inv = DB.inventory[medicineId] || { homeStock: 0, clinicStock: 0 };
+  inv.homeStock = (inv.homeStock || 0) - before.homeQty + newHome;
+  inv.clinicStock = (inv.clinicStock || 0) - before.clinicQty + newClinic;
+  inv.lastUpdated = new Date().toISOString();
+  DB.inventory[medicineId] = inv;
+
+  entry.homeQty = newHome;
+  entry.clinicQty = newClinic;
+  entry.totalQty = newHome + newClinic;
+  entry.notes = newNotes;
+  entry.date = newDate;
+
+  const med = getMedicine(medicineId);
+  DB.stockEditHistory.push({
+    id: DB.meta.nextStockEditId++,
+    stockEntryId: Number(entryId),
+    medicineName: med ? med.name : '(deleted)',
+    editedAt: new Date().toISOString(),
+    before,
+    after: { homeQty: newHome, clinicQty: newClinic, notes: newNotes, date: newDate }
+  });
+
+  saveDB(DB);
+  toast('Stock entry updated. Inventory adjusted automatically.');
+  route();
+}
+
+/* -------------------------------- Inventory ----------------------------------- */
+
+function renderInventory() {
+  const rows = DB.medicines.length ? DB.medicines.map(m => {
+    const inv = getInventory(m.id);
+    const st = stockStatus(m.id, m.minStockAlert);
+    return `<tr data-row="${m.id}">
+      <td class="font-medium">${escapeHtml(m.name)}</td>
+      <td>${fmtMoney(m.purchasePrice)}</td><td>${fmtMoney(m.mrp)}</td>
+      <td data-view><span data-home>${inv.homeStock || 0}</span></td>
+      <td data-view><span data-clinic>${inv.clinicStock || 0}</span></td>
+      <td class="font-semibold">${(inv.homeStock || 0) + (inv.clinicStock || 0)}</td>
+      <td class="text-slate-500">${inv.lastUpdated ? fmtDateTime(inv.lastUpdated) : '-'}</td>
+      <td>${badgeHtml(st.label, st.cls)}</td>
+      <td><button data-editstock="${m.id}" class="font-semibold text-teal-600 hover:underline">Edit</button></td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="9" class="py-8 text-center text-slate-400">No inventory data yet. Add a medicine first.</td></tr>`;
+
+  return `
+    <h2 class="mb-2 text-2xl font-extrabold text-teal-700">Inventory</h2>
+    <p class="mb-6 text-sm text-slate-500">Edit karne ke liye 4-digit security PIN maanga jayega.</p>
+    ${DB.medicines.length === 0 ? noMedicinesBanner('Inventory dekhne se pehle "Medicines" page se dawa add karein.') : ''}
+    ${tableWrap(`
+      <thead><tr class="app-table-head bg-teal-50">
+        <th class="px-4 py-3 font-semibold text-teal-700">Medicine</th><th class="px-4 py-3 font-semibold text-teal-700">Purchase Price</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">MRP</th><th class="px-4 py-3 font-semibold text-teal-700">Home Stock</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Clinic Stock</th><th class="px-4 py-3 font-semibold text-teal-700">Total Stock</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Last Updated</th><th class="px-4 py-3 font-semibold text-teal-700">Status</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Action</th>
+      </tr></thead>
+      <tbody class="std-tbody">${rows}</tbody>
+    `)}`;
+}
+
+function attachInventoryEvents() {
+  document.querySelectorAll('[data-editstock]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      askForPin(() => enableInventoryEdit(btn), 'Enter PIN to Edit Inventory');
+    });
+  });
+}
+
+function enableInventoryEdit(btn) {
+  const id = btn.dataset.editstock;
+  const row = document.querySelector(`tr[data-row="${id}"]`);
+  const inv = getInventory(id);
+  const homeCell = row.querySelector('[data-home]').parentElement;
+  const clinicCell = row.querySelector('[data-clinic]').parentElement;
+  homeCell.innerHTML = `<input type="number" min="0" class="${INPUT} py-1.5" id="editHome${id}" value="${inv.homeStock || 0}" />`;
+  clinicCell.innerHTML = `<input type="number" min="0" class="${INPUT} py-1.5" id="editClinic${id}" value="${inv.clinicStock || 0}" />`;
+  btn.outerHTML = `<button data-savestock="${id}" class="font-semibold text-teal-600 hover:underline mr-2">Save</button><button data-cancelstock="${id}" class="font-semibold text-slate-500 hover:underline">Cancel</button>`;
+
+  document.querySelector(`[data-savestock="${id}"]`).addEventListener('click', () => {
+    const home = Number(document.getElementById(`editHome${id}`).value);
+    const clinic = Number(document.getElementById(`editClinic${id}`).value);
+    if (isNaN(home) || home < 0 || isNaN(clinic) || clinic < 0) { toast('Enter valid non-negative numbers.', true); return; }
+    DB.inventory[id] = { homeStock: home, clinicStock: clinic, lastUpdated: new Date().toISOString() };
+    saveDB(DB);
+    toast('Stock updated.');
+    route();
+  });
+  document.querySelector(`[data-cancelstock="${id}"]`).addEventListener('click', () => route());
+}
+
+/* --------------------------------- Sales ---------------------------------------- */
+
+// A "cart" of medicines being added to the current sale, plus the other
+// form fields, kept in module-level state so the list can grow/shrink via
+// internal re-renders without losing what the user already typed.
+let saleCart = [];
+let saleDraft = { date: todayStr(), patient: '', phone: '', discount: 0, paid: '', paymentMode: 'Cash', notes: '' };
+
+function renderSales() {
+  const activeMeds = DB.medicines.filter(m => m.status === 'Active');
+  const options = activeMeds.map(m => {
+    const inv = getInventory(m.id);
+    return `<option value="${m.id}" data-mrp="${m.mrp}" data-clinicstock="${inv.clinicStock || 0}">${escapeHtml(m.name)} (Clinic Stock: ${inv.clinicStock || 0})</option>`;
+  }).join('');
+
+  const cartRows = saleCart.length ? saleCart.map((item, idx) => {
+    const med = getMedicine(item.medicineId);
+    return `<tr>
+      <td class="font-medium">${med ? escapeHtml(med.name) : '(deleted)'}</td>
+      <td>${item.quantity}</td>
+      <td>${fmtMoney(item.sellingPrice)}</td>
+      <td class="font-semibold">${fmtMoney(item.quantity * item.sellingPrice)}</td>
+      <td><button data-removeitem="${idx}" class="font-semibold text-red-600 hover:underline">Remove</button></td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="5" class="py-6 text-center text-slate-400">Abhi koi medicine add nahi hui. Neeche se add karein.</td></tr>`;
+
+  const grossAmount = saleCart.reduce((sum, it) => sum + it.quantity * it.sellingPrice, 0);
+
+  return `
+    <h2 class="mb-6 text-2xl font-extrabold text-teal-700">Patient Sell</h2>
+    ${activeMeds.length === 0 ? noMedicinesBanner('Sale karne se pehle "Medicines" page se dawa add karein.') : ''}
+    <div class="${CARD} mb-6 max-w-2xl">
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div><label class="${LABEL}">Date</label><input id="saleDate" type="date" class="${INPUT}" value="${saleDraft.date || todayStr()}" /></div>
+        <div><label class="${LABEL}">Patient Name</label><input id="salePatient" class="${INPUT}" value="${escapeHtml(saleDraft.patient || '')}" required /></div>
+      </div>
+      <div class="mb-4">
+        <label class="${LABEL}">Patient WhatsApp Number (Optional)</label>
+        <input id="salePatientPhone" type="tel" class="${INPUT}" value="${escapeHtml(saleDraft.phone || '')}" placeholder="10-digit mobile number, bill WhatsApp par bhejne ke liye" />
+      </div>
+
+      <h4 class="mb-2 font-semibold text-slate-700">Add Medicine</h4>
+      <div class="grid grid-cols-2 gap-4 mb-3">
+        <div><label class="${LABEL}">Medicine</label><select id="saleItemMedicine" class="${INPUT}"><option value="">Select medicine</option>${options}</select></div>
+        <div><label class="${LABEL}">Quantity</label><input id="saleItemQty" type="number" min="1" class="${INPUT}" value="1" /></div>
+      </div>
+      <div class="grid grid-cols-2 gap-4 mb-3">
+        <div><label class="${LABEL}">Selling Price (per unit)</label><input id="saleItemPrice" type="number" min="0" step="0.01" class="${INPUT}" /></div>
+        <div class="flex items-end"><button type="button" id="saleAddItemBtn" class="${BTN_SECONDARY} w-full">+ Add to Sale</button></div>
+      </div>
+      <p id="saleItemError" class="mb-3 text-sm font-medium text-red-600" style="display:none"></p>
+
+      <h4 class="mb-2 font-semibold text-slate-700">Items in this Sale</h4>
+      ${tableWrap(`
+        <thead><tr class="app-table-head bg-teal-50"><th class="px-3 py-2 font-semibold text-teal-700">Medicine</th><th class="px-3 py-2 font-semibold text-teal-700">Qty</th><th class="px-3 py-2 font-semibold text-teal-700">Price</th><th class="px-3 py-2 font-semibold text-teal-700">Line Total</th><th class="px-3 py-2 font-semibold text-teal-700"></th></tr></thead>
+        <tbody class="std-tbody">${cartRows}</tbody>
+      `)}
+
+      <div class="mt-4 grid grid-cols-2 gap-4">
+        <div><label class="${LABEL}">Overall Discount (&#8377;)</label><input id="saleDiscount" type="number" min="0" step="0.01" class="${INPUT}" value="${saleDraft.discount || 0}" /></div>
+        <div><label class="${LABEL}">Payment Mode</label><select id="salePaymentMode" class="${INPUT}"><option value="Cash" ${saleDraft.paymentMode === 'Cash' ? 'selected' : ''}>Cash</option><option value="UPI" ${saleDraft.paymentMode === 'UPI' ? 'selected' : ''}>UPI</option></select></div>
+      </div>
+      <div class="mt-4 grid grid-cols-2 gap-4">
+        <div><label class="${LABEL}">Amount Paid (&#8377;)</label><input id="salePaidAmount" type="number" min="0" step="0.01" class="${INPUT}" value="${saleDraft.paid || ''}" placeholder="Poora amount agar khali chhodein" /></div>
+        <div><label class="${LABEL}">Notes (Optional)</label><input id="saleNotes" class="${INPUT}" value="${escapeHtml(saleDraft.notes || '')}" /></div>
+      </div>
+
+      <div class="mt-4 space-y-1 rounded-xl bg-teal-50 px-4 py-3 text-teal-700">
+        <p class="flex justify-between text-sm"><span>Gross Amount</span><span id="saleGrossPreview">${fmtMoney(grossAmount)}</span></p>
+        <p class="flex justify-between text-sm"><span>Total (After Discount)</span><span id="saleTotalPreview">${fmtMoney(grossAmount)}</span></p>
+        <p class="flex justify-between text-lg font-bold"><span>Due Amount</span><span id="saleDuePreview">&#8377;0</span></p>
+      </div>
+      <p id="saleError" class="mt-3 text-sm font-medium text-red-600" style="display:none"></p>
+      <div class="mt-4 flex gap-3">
+        <button type="button" id="saleClearCartBtn" class="${BTN_SECONDARY} flex-1">Clear Sale</button>
+        <button type="button" id="saleSaveBtn" class="${BTN_PRIMARY} flex-1">Save Sale</button>
+      </div>
+    </div>`;
+}
+
+function rerenderSales() {
+  document.getElementById('app').querySelector('main').innerHTML = renderSales();
+  attachSalesEvents();
+}
+
+function captureSaleDraft() {
+  saleDraft.date = document.getElementById('saleDate').value;
+  saleDraft.patient = document.getElementById('salePatient').value;
+  saleDraft.phone = document.getElementById('salePatientPhone').value;
+  saleDraft.discount = document.getElementById('saleDiscount').value;
+  saleDraft.paid = document.getElementById('salePaidAmount').value;
+  saleDraft.paymentMode = document.getElementById('salePaymentMode').value;
+  saleDraft.notes = document.getElementById('saleNotes').value;
+}
+
+function attachSalesEvents() {
+  const medicineSel = document.getElementById('saleItemMedicine');
+  const qtyInput = document.getElementById('saleItemQty');
+  const priceInput = document.getElementById('saleItemPrice');
+  const itemErrEl = document.getElementById('saleItemError');
+
+  medicineSel.addEventListener('change', () => {
+    const opt = medicineSel.selectedOptions[0];
+    priceInput.value = (opt && opt.value) ? opt.dataset.mrp : '';
+  });
+
+  document.getElementById('saleAddItemBtn').addEventListener('click', () => {
+    itemErrEl.style.display = 'none';
+    const medicineId = medicineSel.value;
+    const qty = Number(qtyInput.value);
+    const price = Number(priceInput.value);
+    if (!medicineId) { itemErrEl.textContent = 'Medicine select karein.'; itemErrEl.style.display = 'block'; return; }
+    if (isNaN(qty) || qty <= 0) { itemErrEl.textContent = 'Valid quantity dalein.'; itemErrEl.style.display = 'block'; return; }
+    if (isNaN(price) || price < 0) { itemErrEl.textContent = 'Valid price dalein.'; itemErrEl.style.display = 'block'; return; }
+
+    const med = getMedicine(medicineId);
+    const inv = getInventory(medicineId);
+    const alreadyInCart = saleCart.filter(it => String(it.medicineId) === String(medicineId)).reduce((s, it) => s + it.quantity, 0);
+    if ((inv.clinicStock || 0) < alreadyInCart + qty) {
+      itemErrEl.textContent = `Clinic stock kam hai. Sirf ${inv.clinicStock || 0} unit available hai ${med.name} ki.`;
+      itemErrEl.style.display = 'block';
+      return;
+    }
+
+    saleCart.push({ medicineId, quantity: qty, sellingPrice: price, mrp: med.mrp });
+    captureSaleDraft();
+    rerenderSales();
+  });
+
+  document.querySelectorAll('[data-removeitem]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      captureSaleDraft();
+      saleCart.splice(Number(btn.dataset.removeitem), 1);
+      rerenderSales();
+    });
+  });
+
+  const discountInput = document.getElementById('saleDiscount');
+  const paidInput = document.getElementById('salePaidAmount');
+  function updateTotals() {
+    const gross = saleCart.reduce((sum, it) => sum + it.quantity * it.sellingPrice, 0);
+    const discount = Number(discountInput.value) || 0;
+    const total = Math.max(0, gross - discount);
+    const paidRaw = paidInput.value;
+    const paid = paidRaw === '' ? total : Math.max(0, Number(paidRaw) || 0);
+    const due = Math.max(0, total - paid);
+    document.getElementById('saleGrossPreview').innerHTML = fmtMoney(gross);
+    document.getElementById('saleTotalPreview').innerHTML = fmtMoney(total);
+    document.getElementById('saleDuePreview').innerHTML = fmtMoney(due);
+  }
+  discountInput.addEventListener('input', updateTotals);
+  paidInput.addEventListener('input', updateTotals);
+  updateTotals();
+
+  document.getElementById('saleClearCartBtn').addEventListener('click', () => {
+    if (saleCart.length && !confirm('Sale clear karein? Sabhi items hat jayenge.')) return;
+    saleCart = [];
+    saleDraft = { date: todayStr(), patient: '', phone: '', discount: 0, paid: '', paymentMode: 'Cash', notes: '' };
+    rerenderSales();
+  });
+
+  document.getElementById('saleSaveBtn').addEventListener('click', () => {
+    const errEl = document.getElementById('saleError');
+    errEl.style.display = 'none';
+    const date = document.getElementById('saleDate').value;
+    const patientName = document.getElementById('salePatient').value.trim();
+    const patientPhone = document.getElementById('salePatientPhone').value.trim();
+    const discount = Number(discountInput.value) || 0;
+    const paymentMode = document.getElementById('salePaymentMode').value;
+    const notes = document.getElementById('saleNotes').value.trim();
+    const paidRaw = paidInput.value;
+
+    if (!patientName) { errEl.textContent = 'Patient name is required.'; errEl.style.display = 'block'; return; }
+    if (saleCart.length === 0) { errEl.textContent = 'Kam se kam ek medicine add karein.'; errEl.style.display = 'block'; return; }
+
+    const qtyByMed = {};
+    saleCart.forEach(it => { qtyByMed[it.medicineId] = (qtyByMed[it.medicineId] || 0) + it.quantity; });
+    for (const medId in qtyByMed) {
+      const inv = getInventory(medId);
+      if ((inv.clinicStock || 0) < qtyByMed[medId]) {
+        const med = getMedicine(medId);
+        errEl.textContent = `Not enough clinic stock for ${med ? med.name : medId}.`;
+        errEl.style.display = 'block';
+        return;
+      }
+    }
+
+    const grossAmount = saleCart.reduce((sum, it) => sum + it.quantity * it.sellingPrice, 0);
+    const totalAmount = Math.max(0, grossAmount - discount);
+    const paid = paidRaw === '' ? totalAmount : Math.max(0, Number(paidRaw) || 0);
+    const dueAmount = Math.max(0, totalAmount - paid);
+
+    const id = DB.meta.nextSaleId++;
+    const invoiceNumber = DB.meta.nextInvoiceNumber++;
+    const items = saleCart.map(it => ({ medicineId: it.medicineId, quantity: it.quantity, sellingPrice: it.sellingPrice, mrp: it.mrp, lineTotal: it.quantity * it.sellingPrice }));
+    const sale = { id, invoiceNumber, date, patientName, patientPhone, saleType: 'Regular', items, discount, grossAmount, totalAmount, paidAmount: paid, dueAmount, paymentMode, notes, createdAt: new Date().toISOString() };
+    DB.sales.push(sale);
+
+    items.forEach(it => {
+      const inv = getInventory(it.medicineId);
+      inv.clinicStock = (inv.clinicStock || 0) - it.quantity;
+      inv.lastUpdated = new Date().toISOString();
+      DB.inventory[it.medicineId] = inv;
+    });
+
+    saveDB(DB);
+    toast(`Sale #${invoiceNumber} recorded. Total: ${fmtMoney(totalAmount)}${dueAmount > 0 ? ', Due: ' + fmtMoney(dueAmount) : ''}`);
+
+    if (patientPhone) sendBillOnWhatsApp(sale, patientPhone);
+
+    const shouldPrint = confirm('Sale saved. Print receipt for the patient?');
+    saleCart = [];
+    saleDraft = { date: todayStr(), patient: '', phone: '', discount: 0, paid: '', paymentMode: 'Cash', notes: '' };
+
+    if (shouldPrint) printReceipt(sale);
+    route();
+  });
+}
+
+function printReceipt(sale) {
+  const area = document.getElementById('printArea');
+  const itemRows = sale.items.map(it => {
+    const med = getMedicine(it.medicineId);
+    return `<tr><td style="padding:4px 0;">${escapeHtml(med ? med.name : '(deleted)')} x${it.quantity}</td><td style="text-align:right;">${fmtMoney(it.lineTotal)}</td></tr>`;
+  }).join('');
+  area.innerHTML = `
+    <div style="font-family: Arial, sans-serif; max-width: 380px; margin: 0 auto; padding: 16px;">
+      <h2 style="text-align:center; margin-bottom:0;">Shree RK iTeraHERTZ Care</h2>
+      <p style="text-align:center; margin-top:4px; color:#555;">Sales Receipt${sale.saleType === 'Sale 50%' ? ' (ID Sale)' : ''}</p>
+      <hr />
+      <p>Bill No: <strong>${sale.invoiceNumber || '-'}</strong></p>
+      <p>Date: ${sale.date}</p>
+      <p>Patient: ${escapeHtml(sale.patientName)}</p>
+      <table style="width:100%; border-collapse: collapse; margin-top:8px;">
+        ${itemRows}
+        <tr><td style="padding:4px 0;">Gross Amount</td><td style="text-align:right;">${fmtMoney(sale.grossAmount)}</td></tr>
+        <tr><td style="padding:4px 0;">Discount</td><td style="text-align:right;">${fmtMoney(sale.discount || 0)}</td></tr>
+        <tr style="font-weight:bold; border-top:1px solid #333;"><td style="padding:6px 0;">Total Amount</td><td style="text-align:right;">${fmtMoney(sale.totalAmount)}</td></tr>
+        <tr><td style="padding:4px 0;">Paid</td><td style="text-align:right;">${fmtMoney(sale.paidAmount)}</td></tr>
+        <tr style="${sale.dueAmount > 0 ? 'font-weight:bold;color:#b91c1c;' : ''}"><td style="padding:4px 0;">Due</td><td style="text-align:right;">${fmtMoney(sale.dueAmount)}</td></tr>
+        <tr><td style="padding:4px 0;">Payment Mode</td><td style="text-align:right;">${sale.paymentMode}</td></tr>
+      </table>
+      <p style="text-align:center; margin-top:16px; color:#888; font-size:12px;">Thank you. Get well soon.</p>
+    </div>`;
+  area.style.display = 'block';
+  const originalTitle = document.title;
+  document.title = '\u200B'; // browser prints this in its header; keep it blank
+  window.print();
+  document.title = originalTitle;
+  area.style.display = 'none';
+}
+
+// Builds a plain-text bill summary and opens WhatsApp with the message
+// pre-filled, ready for the person to just hit Send. True one-click,
+// zero-interaction sending isn't possible from a plain webpage (that needs
+// WhatsApp's paid Business API with Meta approval) — this is the closest
+// practical equivalent for a no-backend, single-file app.
+function buildWhatsAppMessage(sale) {
+  const lines = [];
+  lines.push('*Shree RK iTeraHERTZ Care*');
+  lines.push(`Bill No: ${sale.invoiceNumber || '-'}`);
+  lines.push(`Date: ${sale.date}`);
+  lines.push(`Patient: ${sale.patientName}`);
+  lines.push('');
+  sale.items.forEach(it => {
+    const med = getMedicine(it.medicineId);
+    lines.push(`${med ? med.name : '(deleted)'} x${it.quantity} = ${fmtMoneyPlain(it.lineTotal)}`);
+  });
+  lines.push('');
+  lines.push(`Total: ${fmtMoneyPlain(sale.totalAmount)}`);
+  lines.push(`Paid: ${fmtMoneyPlain(sale.paidAmount)}`);
+  if (sale.dueAmount > 0) lines.push(`Due: ${fmtMoneyPlain(sale.dueAmount)}`);
+  lines.push('');
+  lines.push('Thank you! Get well soon.');
+  return lines.join('\n');
+}
+
+function sendBillOnWhatsApp(sale, phone) {
+  const digitsOnly = String(phone || '').replace(/\D/g, '');
+  if (!digitsOnly) return;
+  const fullPhone = digitsOnly.length === 10 ? '91' + digitsOnly : digitsOnly;
+  const message = encodeURIComponent(buildWhatsAppMessage(sale));
+  window.open(`https://wa.me/${fullPhone}?text=${message}`, '_blank');
+}
+
+/* ------------------------------ Sale 50% (Cost to Cost) --------------------------- */
+
+let sale50Cart = [];
+let sale50Draft = { date: todayStr(), patient: '', phone: '', paid: '', paymentMode: 'Cash', notes: '' };
+
+function renderSale50() {
+  const activeMeds = DB.medicines.filter(m => m.status === 'Active');
+  const options = activeMeds.map(m => {
+    const inv = getInventory(m.id);
+    const halfPrice = (Number(m.mrp) / 2).toFixed(2);
+    return `<option value="${m.id}" data-mrp="${m.mrp}" data-halfprice="${halfPrice}" data-clinicstock="${inv.clinicStock || 0}">${escapeHtml(m.name)} (Clinic Stock: ${inv.clinicStock || 0})</option>`;
+  }).join('');
+
+  const cartRows = sale50Cart.length ? sale50Cart.map((item, idx) => {
+    const med = getMedicine(item.medicineId);
+    return `<tr>
+      <td class="font-medium">${med ? escapeHtml(med.name) : '(deleted)'}</td>
+      <td>${item.quantity}</td>
+      <td>${fmtMoney(item.sellingPrice)}</td>
+      <td class="font-semibold">${fmtMoney(item.quantity * item.sellingPrice)}</td>
+      <td><button data-removeitem50="${idx}" class="font-semibold text-red-600 hover:underline">Remove</button></td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="5" class="py-6 text-center text-slate-400">Abhi koi medicine add nahi hui. Neeche se add karein.</td></tr>`;
+
+  const totalAmount = sale50Cart.reduce((sum, it) => sum + it.quantity * it.sellingPrice, 0);
+
+  return `
+    <h2 class="mb-2 text-2xl font-extrabold text-teal-700">ID Sale</h2>
+    <p class="mb-6 text-sm text-slate-500">Cost-to-cost sale &mdash; har medicine 50% MRP par sell hoti hai (price auto-set, edit nahi ho sakta).</p>
+    ${activeMeds.length === 0 ? noMedicinesBanner('Sale karne se pehle "Medicines" page se dawa add karein.') : ''}
+    <div class="${CARD} mb-6 max-w-2xl">
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div><label class="${LABEL}">Date</label><input id="sale50Date" type="date" class="${INPUT}" value="${sale50Draft.date || todayStr()}" /></div>
+        <div><label class="${LABEL}">Patient Name</label><input id="sale50Patient" class="${INPUT}" value="${escapeHtml(sale50Draft.patient || '')}" required /></div>
+      </div>
+      <div class="mb-4">
+        <label class="${LABEL}">Patient WhatsApp Number (Optional)</label>
+        <input id="sale50PatientPhone" type="tel" class="${INPUT}" value="${escapeHtml(sale50Draft.phone || '')}" placeholder="10-digit mobile number, bill WhatsApp par bhejne ke liye" />
+      </div>
+
+      <h4 class="mb-2 font-semibold text-slate-700">Add Medicine</h4>
+      <div class="grid grid-cols-2 gap-4 mb-3">
+        <div><label class="${LABEL}">Medicine</label><select id="sale50ItemMedicine" class="${INPUT}"><option value="">Select medicine</option>${options}</select></div>
+        <div><label class="${LABEL}">Quantity</label><input id="sale50ItemQty" type="number" min="1" class="${INPUT}" value="1" /></div>
+      </div>
+      <div class="grid grid-cols-2 gap-4 mb-3">
+        <div><label class="${LABEL}">Selling Price (50% of MRP)</label><input id="sale50ItemPrice" type="number" class="${INPUT} bg-slate-50" readonly /></div>
+        <div class="flex items-end"><button type="button" id="sale50AddItemBtn" class="${BTN_SECONDARY} w-full">+ Add to Sale</button></div>
+      </div>
+      <p id="sale50ItemError" class="mb-3 text-sm font-medium text-red-600" style="display:none"></p>
+
+      <h4 class="mb-2 font-semibold text-slate-700">Items in this Sale</h4>
+      ${tableWrap(`
+        <thead><tr class="app-table-head bg-teal-50"><th class="px-3 py-2 font-semibold text-teal-700">Medicine</th><th class="px-3 py-2 font-semibold text-teal-700">Qty</th><th class="px-3 py-2 font-semibold text-teal-700">Price</th><th class="px-3 py-2 font-semibold text-teal-700">Line Total</th><th class="px-3 py-2 font-semibold text-teal-700"></th></tr></thead>
+        <tbody class="std-tbody">${cartRows}</tbody>
+      `)}
+
+      <div class="mt-4 grid grid-cols-2 gap-4">
+        <div><label class="${LABEL}">Payment Mode</label><select id="sale50PaymentMode" class="${INPUT}"><option value="Cash" ${sale50Draft.paymentMode === 'Cash' ? 'selected' : ''}>Cash</option><option value="UPI" ${sale50Draft.paymentMode === 'UPI' ? 'selected' : ''}>UPI</option></select></div>
+        <div><label class="${LABEL}">Amount Paid (&#8377;)</label><input id="sale50PaidAmount" type="number" min="0" step="0.01" class="${INPUT}" value="${sale50Draft.paid || ''}" placeholder="Poora amount agar khali chhodein" /></div>
+      </div>
+      <div class="mt-4"><label class="${LABEL}">Notes (Optional)</label><input id="sale50Notes" class="${INPUT}" value="${escapeHtml(sale50Draft.notes || '')}" /></div>
+
+      <div class="mt-4 space-y-1 rounded-xl bg-teal-50 px-4 py-3 text-teal-700">
+        <p class="flex justify-between text-lg font-bold"><span>Total Amount</span><span id="sale50TotalPreview">${fmtMoney(totalAmount)}</span></p>
+        <p class="flex justify-between text-lg font-bold"><span>Due Amount</span><span id="sale50DuePreview">&#8377;0</span></p>
+      </div>
+      <p id="sale50Error" class="mt-3 text-sm font-medium text-red-600" style="display:none"></p>
+      <div class="mt-4 flex gap-3">
+        <button type="button" id="sale50ClearCartBtn" class="${BTN_SECONDARY} flex-1">Clear Sale</button>
+        <button type="button" id="sale50SaveBtn" class="${BTN_PRIMARY} flex-1">Save ID Sale</button>
+      </div>
+    </div>`;
+}
+
+function rerenderSale50() {
+  document.getElementById('app').querySelector('main').innerHTML = renderSale50();
+  attachSale50Events();
+}
+
+function captureSale50Draft() {
+  sale50Draft.date = document.getElementById('sale50Date').value;
+  sale50Draft.patient = document.getElementById('sale50Patient').value;
+  sale50Draft.phone = document.getElementById('sale50PatientPhone').value;
+  sale50Draft.paid = document.getElementById('sale50PaidAmount').value;
+  sale50Draft.paymentMode = document.getElementById('sale50PaymentMode').value;
+  sale50Draft.notes = document.getElementById('sale50Notes').value;
+}
+
+function attachSale50Events() {
+  const medicineSel = document.getElementById('sale50ItemMedicine');
+  const qtyInput = document.getElementById('sale50ItemQty');
+  const priceInput = document.getElementById('sale50ItemPrice');
+  const itemErrEl = document.getElementById('sale50ItemError');
+
+  medicineSel.addEventListener('change', () => {
+    const opt = medicineSel.selectedOptions[0];
+    priceInput.value = (opt && opt.value) ? opt.dataset.halfprice : '';
+  });
+
+  document.getElementById('sale50AddItemBtn').addEventListener('click', () => {
+    itemErrEl.style.display = 'none';
+    const medicineId = medicineSel.value;
+    const qty = Number(qtyInput.value);
+    const price = Number(priceInput.value);
+    if (!medicineId) { itemErrEl.textContent = 'Medicine select karein.'; itemErrEl.style.display = 'block'; return; }
+    if (isNaN(qty) || qty <= 0) { itemErrEl.textContent = 'Valid quantity dalein.'; itemErrEl.style.display = 'block'; return; }
+
+    const med = getMedicine(medicineId);
+    const inv = getInventory(medicineId);
+    const alreadyInCart = sale50Cart.filter(it => String(it.medicineId) === String(medicineId)).reduce((s, it) => s + it.quantity, 0);
+    if ((inv.clinicStock || 0) < alreadyInCart + qty) {
+      itemErrEl.textContent = `Clinic stock kam hai. Sirf ${inv.clinicStock || 0} unit available hai ${med.name} ki.`;
+      itemErrEl.style.display = 'block';
+      return;
+    }
+
+    sale50Cart.push({ medicineId, quantity: qty, sellingPrice: price, mrp: med.mrp });
+    captureSale50Draft();
+    rerenderSale50();
+  });
+
+  document.querySelectorAll('[data-removeitem50]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      captureSale50Draft();
+      sale50Cart.splice(Number(btn.dataset.removeitem50), 1);
+      rerenderSale50();
+    });
+  });
+
+  const paidInput = document.getElementById('sale50PaidAmount');
+  function updateTotals() {
+    const total = sale50Cart.reduce((sum, it) => sum + it.quantity * it.sellingPrice, 0);
+    const paidRaw = paidInput.value;
+    const paid = paidRaw === '' ? total : Math.max(0, Number(paidRaw) || 0);
+    const due = Math.max(0, total - paid);
+    document.getElementById('sale50TotalPreview').innerHTML = fmtMoney(total);
+    document.getElementById('sale50DuePreview').innerHTML = fmtMoney(due);
+  }
+  paidInput.addEventListener('input', updateTotals);
+  updateTotals();
+
+  document.getElementById('sale50ClearCartBtn').addEventListener('click', () => {
+    if (sale50Cart.length && !confirm('Sale clear karein? Sabhi items hat jayenge.')) return;
+    sale50Cart = [];
+    sale50Draft = { date: todayStr(), patient: '', phone: '', paid: '', paymentMode: 'Cash', notes: '' };
+    rerenderSale50();
+  });
+
+  document.getElementById('sale50SaveBtn').addEventListener('click', () => {
+    const errEl = document.getElementById('sale50Error');
+    errEl.style.display = 'none';
+    const date = document.getElementById('sale50Date').value;
+    const patientName = document.getElementById('sale50Patient').value.trim();
+    const patientPhone = document.getElementById('sale50PatientPhone').value.trim();
+    const paymentMode = document.getElementById('sale50PaymentMode').value;
+    const notes = document.getElementById('sale50Notes').value.trim();
+    const paidRaw = paidInput.value;
+
+    if (!patientName) { errEl.textContent = 'Patient name is required.'; errEl.style.display = 'block'; return; }
+    if (sale50Cart.length === 0) { errEl.textContent = 'Kam se kam ek medicine add karein.'; errEl.style.display = 'block'; return; }
+
+    const qtyByMed = {};
+    sale50Cart.forEach(it => { qtyByMed[it.medicineId] = (qtyByMed[it.medicineId] || 0) + it.quantity; });
+    for (const medId in qtyByMed) {
+      const inv = getInventory(medId);
+      if ((inv.clinicStock || 0) < qtyByMed[medId]) {
+        const med = getMedicine(medId);
+        errEl.textContent = `Not enough clinic stock for ${med ? med.name : medId}.`;
+        errEl.style.display = 'block';
+        return;
+      }
+    }
+
+    const totalAmount = sale50Cart.reduce((sum, it) => sum + it.quantity * it.sellingPrice, 0);
+    const paid = paidRaw === '' ? totalAmount : Math.max(0, Number(paidRaw) || 0);
+    const dueAmount = Math.max(0, totalAmount - paid);
+
+    const id = DB.meta.nextSaleId++;
+    const invoiceNumber = DB.meta.nextInvoiceNumber++;
+    const items = sale50Cart.map(it => ({ medicineId: it.medicineId, quantity: it.quantity, sellingPrice: it.sellingPrice, mrp: it.mrp, lineTotal: it.quantity * it.sellingPrice }));
+    const sale = { id, invoiceNumber, date, patientName, patientPhone, saleType: 'Sale 50%', items, discount: 0, grossAmount: totalAmount, totalAmount, paidAmount: paid, dueAmount, paymentMode, notes, createdAt: new Date().toISOString() };
+    DB.sales.push(sale);
+
+    items.forEach(it => {
+      const inv = getInventory(it.medicineId);
+      inv.clinicStock = (inv.clinicStock || 0) - it.quantity;
+      inv.lastUpdated = new Date().toISOString();
+      DB.inventory[it.medicineId] = inv;
+    });
+
+    saveDB(DB);
+    toast(`ID Sale #${invoiceNumber} recorded. Total: ${fmtMoney(totalAmount)}${dueAmount > 0 ? ', Due: ' + fmtMoney(dueAmount) : ''}`);
+
+    if (patientPhone) sendBillOnWhatsApp(sale, patientPhone);
+
+    const shouldPrint = confirm('ID Sale saved. Print receipt for the patient?');
+    sale50Cart = [];
+    sale50Draft = { date: todayStr(), patient: '', phone: '', paid: '', paymentMode: 'Cash', notes: '' };
+
+    if (shouldPrint) printReceipt(sale);
+    route();
+  });
+}
+
+/* --------------------------------- Returns ---------------------------------------- */
+
+let returnSearchQuery = '';
+let selectedReturnSaleId = null;
+
+function renderReturns() {
+  const query = returnSearchQuery.trim().toLowerCase();
+  let matches = [...DB.sales];
+  if (query) {
+    matches = matches.filter(s =>
+      s.patientName.toLowerCase().includes(query) || String(s.invoiceNumber || '').includes(query));
+  }
+  matches.sort((a, b) => (b.date + b.id).localeCompare(a.date + a.id));
+  matches = matches.slice(0, 30);
+
+  const listRows = matches.length ? matches.map(s => {
+    const isSelected = String(s.id) === String(selectedReturnSaleId);
+    const itemsSummary = saleItemsSummary(s);
+    return `<tr class="${isSelected ? 'bg-teal-50' : ''}">
+      <td class="font-semibold text-teal-700">#${s.invoiceNumber || '-'}</td>
+      <td>${s.date}</td><td class="font-medium">${escapeHtml(s.patientName)}</td>
+      <td>${itemsSummary || '<span class="text-slate-400">(sab kuch return ho chuka hai)</span>'}</td>
+      <td>${fmtMoney(s.totalAmount)}</td>
+      <td><button data-selectreturn="${s.id}" class="font-semibold text-teal-600 hover:underline">${isSelected ? 'Selected' : 'Select'}</button></td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="6" class="py-8 text-center text-slate-400">Koi bill nahi mila.</td></tr>`;
+
+  let returnFormHtml = '';
+  const selectedSale = selectedReturnSaleId ? DB.sales.find(s => String(s.id) === String(selectedReturnSaleId)) : null;
+  if (selectedSale) {
+    if (!selectedSale.items || selectedSale.items.length === 0) {
+      returnFormHtml = `<div class="${CARD} mt-6 max-w-xl"><p class="text-slate-500">Is bill (#${selectedSale.invoiceNumber || '-'}) ki saari medicines pehle hi return ho chuki hain.</p></div>`;
+    } else {
+      const itemOptions = selectedSale.items.map((it, idx) => {
+        const med = getMedicine(it.medicineId);
+        return `<option value="${idx}">${med ? escapeHtml(med.name) : '(deleted)'} (Bik chuki Qty: ${it.quantity}, ${fmtMoneyPlain(it.sellingPrice)}/unit)</option>`;
+      }).join('');
+      returnFormHtml = `
+        <div class="${CARD} mt-6 max-w-xl">
+          <h3 class="mb-1 text-lg font-bold text-teal-700">Return from Bill #${selectedSale.invoiceNumber || '-'}</h3>
+          <p class="mb-4 text-sm text-slate-500">${escapeHtml(selectedSale.patientName)} &mdash; ${selectedSale.date}</p>
+          <div class="grid grid-cols-2 gap-4 mb-3">
+            <div><label class="${LABEL}">Medicine Return Karni Hai</label><select id="returnItemSelect" class="${INPUT}">${itemOptions}</select></div>
+            <div><label class="${LABEL}">Return Quantity</label><input id="returnQty" type="number" min="1" class="${INPUT}" value="1" /></div>
+          </div>
+          <div class="mb-3"><label class="${LABEL}">Reason / Notes (Optional)</label><input id="returnNotes" class="${INPUT}" placeholder="e.g. Suit nahi hui, galti se extra le li thi" /></div>
+          <p id="returnError" class="mb-3 text-sm font-medium text-red-600" style="display:none"></p>
+          <div class="flex gap-3">
+            <button type="button" id="returnCancelBtn" class="${BTN_SECONDARY} flex-1">Cancel</button>
+            <button type="button" id="returnSubmitBtn" class="${BTN_PRIMARY} flex-1">Process Return</button>
+          </div>
+        </div>`;
+    }
+  }
+
+  const returnHistory = [...DB.salesReturns].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const historyRows = returnHistory.length ? returnHistory.map(r => `
+    <tr>
+      <td>${r.date}</td><td class="font-semibold text-teal-700">#${r.invoiceNumber || '-'}</td>
+      <td class="font-medium">${escapeHtml(r.patientName)}</td><td>${escapeHtml(r.medicineName)}</td>
+      <td>${r.quantity}</td><td class="font-semibold">${fmtMoney(r.refundAmount)}</td>
+      <td class="text-slate-500">${escapeHtml(r.notes || '-')}</td>
+    </tr>`).join('') : `<tr><td colspan="7" class="py-6 text-center text-slate-400">Koi return nahi hua ab tak.</td></tr>`;
+
+  return `
+    <h2 class="mb-2 text-2xl font-extrabold text-teal-700">Returns</h2>
+    <p class="mb-6 text-sm text-slate-500">Patient dawa return kare to yahan se process karein &mdash; clinic stock aur due/paid amount dono apne aap adjust ho jayenge. PIN maanga jayega.</p>
+
+    <div class="${CARD} mb-4">
+      <label class="${LABEL}">Patient Naam ya Bill Number Se Dhundo</label>
+      <input id="returnSearchInput" class="${INPUT}" placeholder="e.g. Ramesh ya 105" value="${escapeHtml(returnSearchQuery)}" />
+    </div>
+
+    ${tableWrap(`
+      <thead><tr class="app-table-head bg-teal-50">
+        <th class="px-3 py-2 font-semibold text-teal-700">Bill No</th><th class="px-3 py-2 font-semibold text-teal-700">Date</th>
+        <th class="px-3 py-2 font-semibold text-teal-700">Patient</th><th class="px-3 py-2 font-semibold text-teal-700">Medicines</th>
+        <th class="px-3 py-2 font-semibold text-teal-700">Total</th><th class="px-3 py-2 font-semibold text-teal-700">Action</th>
+      </tr></thead>
+      <tbody class="std-tbody">${listRows}</tbody>
+    `)}
+
+    ${returnFormHtml}
+
+    <h3 class="mb-3 mt-8 text-lg font-bold text-teal-700">Return History</h3>
+    ${tableWrap(`
+      <thead><tr class="app-table-head bg-teal-50">
+        <th class="px-4 py-3 font-semibold text-teal-700">Date</th><th class="px-4 py-3 font-semibold text-teal-700">Bill No</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Patient</th><th class="px-4 py-3 font-semibold text-teal-700">Medicine</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Qty Returned</th><th class="px-4 py-3 font-semibold text-teal-700">Refund Value</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Notes</th>
+      </tr></thead>
+      <tbody class="std-tbody">${historyRows}</tbody>
+    `)}`;
+}
+
+function rerenderReturns() {
+  document.getElementById('app').querySelector('main').innerHTML = renderReturns();
+  attachReturnsEvents();
+}
+
+function attachReturnsEvents() {
+  document.getElementById('returnSearchInput').addEventListener('input', (e) => {
+    returnSearchQuery = e.target.value;
+    rerenderReturns();
+  });
+
+  document.querySelectorAll('[data-selectreturn]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedReturnSaleId = btn.dataset.selectreturn;
+      rerenderReturns();
+    });
+  });
+
+  const cancelBtn = document.getElementById('returnCancelBtn');
+  if (cancelBtn) cancelBtn.addEventListener('click', () => {
+    selectedReturnSaleId = null;
+    rerenderReturns();
+  });
+
+  const submitBtn = document.getElementById('returnSubmitBtn');
+  if (submitBtn) submitBtn.addEventListener('click', () => {
+    askForPin(() => processReturn(), 'Enter PIN to Process Return');
+  });
+}
+
+function processReturn() {
+  const errEl = document.getElementById('returnError');
+  const sale = DB.sales.find(s => String(s.id) === String(selectedReturnSaleId));
+  if (!sale) return;
+
+  const itemIdx = Number(document.getElementById('returnItemSelect').value);
+  const returnQty = Number(document.getElementById('returnQty').value);
+  const notes = document.getElementById('returnNotes').value.trim();
+  const item = sale.items[itemIdx];
+
+  if (!item) { errEl.textContent = 'Medicine select karein.'; errEl.style.display = 'block'; return; }
+  if (isNaN(returnQty) || returnQty <= 0) { errEl.textContent = 'Valid return quantity dalein.'; errEl.style.display = 'block'; return; }
+  if (returnQty > item.quantity) { errEl.textContent = `Sirf ${item.quantity} unit hi is bill mein bik chuki hai, itni return nahi ho sakti.`; errEl.style.display = 'block'; return; }
+
+  const med = getMedicine(item.medicineId);
+  const refundAmount = returnQty * item.sellingPrice;
+
+  // Reduce (or fully remove) this line item from the original sale.
+  item.quantity -= returnQty;
+  item.lineTotal = item.quantity * item.sellingPrice;
+  if (item.quantity <= 0) sale.items.splice(itemIdx, 1);
+
+  // Recompute the sale's totals from scratch based on what's left.
+  sale.grossAmount = sale.items.reduce((sum, it) => sum + it.lineTotal, 0);
+  sale.totalAmount = Math.max(0, sale.grossAmount - (sale.discount || 0));
+
+  // If the patient had already paid more than the new (reduced) total,
+  // that extra is now a cash refund owed to them, not an outstanding due.
+  let refundOwedToPatient = 0;
+  if (sale.paidAmount > sale.totalAmount) {
+    refundOwedToPatient = sale.paidAmount - sale.totalAmount;
+    sale.paidAmount = sale.totalAmount;
+    sale.dueAmount = 0;
+  } else {
+    sale.dueAmount = sale.totalAmount - sale.paidAmount;
+  }
+
+  // Auto-adjust stock: the returned medicine goes straight back into clinic stock.
+  const inv = getInventory(item.medicineId);
+  inv.clinicStock = (inv.clinicStock || 0) + returnQty;
+  inv.lastUpdated = new Date().toISOString();
+  DB.inventory[item.medicineId] = inv;
+
+  DB.salesReturns.push({
+    id: DB.meta.nextReturnId++,
+    saleId: sale.id,
+    invoiceNumber: sale.invoiceNumber,
+    patientName: sale.patientName,
+    date: todayStr(),
+    medicineId: item.medicineId,
+    medicineName: med ? med.name : '(deleted)',
+    quantity: returnQty,
+    refundAmount,
+    notes,
+    createdAt: new Date().toISOString()
+  });
+
+  saveDB(DB);
+
+  if (refundOwedToPatient > 0) {
+    toast(`Return processed. Stock +${returnQty}. Patient ko cash mein ${fmtMoney(refundOwedToPatient)} refund karna hai.`);
+  } else {
+    toast(`Return processed. Stock +${returnQty}. Naya due: ${fmtMoney(sale.dueAmount)}.`);
+  }
+
+  route();
+}
+
+/* ----------------------------- Sales History ------------------------------------ */
+
+function saleItemsSummary(sale) {
+  return (sale.items || []).map(it => {
+    const med = getMedicine(it.medicineId);
+    return `${med ? escapeHtml(med.name) : '(deleted)'} x${it.quantity}`;
+  }).join(', ');
+}
+
+function saleQtyTotal(sale) {
+  return (sale.items || []).reduce((s, it) => s + it.quantity, 0);
+}
+
+function renderSalesHistory(filters) {
+  filters = filters || { patient: '', medicineId: '', fromDate: '', toDate: '' };
+  const medOptions = DB.medicines.map(m => `<option value="${m.id}" ${String(filters.medicineId) === String(m.id) ? 'selected' : ''}>${escapeHtml(m.name)}</option>`).join('');
+
+  let filtered = [...DB.sales];
+  if (filters.patient) filtered = filtered.filter(s => s.patientName.toLowerCase().includes(filters.patient.toLowerCase()));
+  if (filters.medicineId) filtered = filtered.filter(s => (s.items || []).some(it => String(it.medicineId) === String(filters.medicineId)));
+  if (filters.fromDate) filtered = filtered.filter(s => s.date >= filters.fromDate);
+  if (filters.toDate) filtered = filtered.filter(s => s.date <= filters.toDate);
+  filtered.sort((a, b) => (b.date + b.id).localeCompare(a.date + a.id));
+
+  const totalAmount = filtered.reduce((sum, s) => sum + s.totalAmount, 0);
+  const totalDue = filtered.reduce((sum, s) => sum + (s.dueAmount || 0), 0);
+
+  const rows = filtered.length ? filtered.map(s => {
+    const typeBadge = s.saleType === 'Sale 50%' ? badgeHtml(saleTypeLabel(s.saleType), 'badge-low') : badgeHtml(saleTypeLabel(s.saleType), 'badge-ok');
+    const dueCell = s.dueAmount > 0 ? `<span class="font-semibold text-red-600">${fmtMoney(s.dueAmount)}</span>` : fmtMoney(0);
+    return `<tr>
+      <td class="font-semibold text-teal-700">#${s.invoiceNumber || '-'}</td>
+      <td>${s.date}</td><td class="font-medium">${escapeHtml(s.patientName)}</td>
+      <td>${saleItemsSummary(s)}</td><td>${saleQtyTotal(s)}</td>
+      <td class="font-semibold">${fmtMoney(s.totalAmount)}</td><td>${fmtMoney(s.paidAmount)}</td>
+      <td>${dueCell}</td><td>${s.paymentMode}</td><td>${typeBadge}</td></tr>`;
+  }).join('') : `<tr><td colspan="10" class="py-8 text-center text-slate-400">No sales found.</td></tr>`;
+
+  return `
+    <h2 class="mb-6 text-2xl font-extrabold text-teal-700">Sales History</h2>
+    ${DB.medicines.length === 0 ? noMedicinesBanner('Sales history mein kuch dikhane ke liye pehle "Medicines" page se dawa add karein aur sale karein.') : ''}
+    <div class="${CARD} mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div><label class="${LABEL}">Patient Name</label><input id="filterPatient" class="${INPUT}" placeholder="Search patient..." value="${escapeHtml(filters.patient)}" /></div>
+      <div><label class="${LABEL}">Medicine</label><select id="filterMedicine" class="${INPUT}"><option value="">All medicines</option>${medOptions}</select></div>
+      <div><label class="${LABEL}">From Date</label><input id="filterFromDate" type="date" class="${INPUT}" value="${filters.fromDate}" /></div>
+      <div><label class="${LABEL}">To Date</label><input id="filterToDate" type="date" class="${INPUT}" value="${filters.toDate}" /></div>
+    </div>
+    <div class="mb-4 flex flex-wrap items-center gap-3">
+      <button id="filterTillDateBtn" class="${BTN_SECONDARY}">Show Till Today</button>
+      <button id="filterClearBtn" class="${BTN_SECONDARY}">Clear Filters</button>
+      <div class="ml-auto flex flex-wrap gap-2">
+        <div class="rounded-xl bg-teal-50 px-4 py-2 font-bold text-teal-700">Total: ${fmtMoney(totalAmount)} (${filtered.length} sale${filtered.length === 1 ? '' : 's'})</div>
+        <div class="rounded-xl bg-red-50 px-4 py-2 font-bold text-red-700">Due: ${fmtMoney(totalDue)}</div>
+      </div>
+    </div>
+    ${tableWrap(`
+      <thead><tr class="app-table-head bg-teal-50">
+        <th class="px-4 py-3 font-semibold text-teal-700">Bill No</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Date</th><th class="px-4 py-3 font-semibold text-teal-700">Patient</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Medicines</th><th class="px-4 py-3 font-semibold text-teal-700">Qty</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Total Amount</th><th class="px-4 py-3 font-semibold text-teal-700">Paid</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Due</th><th class="px-4 py-3 font-semibold text-teal-700">Payment</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Type</th>
+      </tr></thead>
+      <tbody class="std-tbody">${rows}</tbody>
+    `)}`;
+}
+
+let salesHistoryFilters = { patient: '', medicineId: '', fromDate: '', toDate: '' };
+
+function rerenderSalesHistory() {
+  document.getElementById('app').querySelector('main').innerHTML = renderSalesHistory(salesHistoryFilters);
+  attachSalesHistoryEvents();
+}
+
+function attachSalesHistoryEvents() {
+  document.getElementById('filterPatient').addEventListener('input', (e) => {
+    salesHistoryFilters.patient = e.target.value;
+    rerenderSalesHistory();
+  });
+  document.getElementById('filterMedicine').addEventListener('change', (e) => {
+    salesHistoryFilters.medicineId = e.target.value;
+    rerenderSalesHistory();
+  });
+  document.getElementById('filterFromDate').addEventListener('change', (e) => {
+    salesHistoryFilters.fromDate = e.target.value;
+    rerenderSalesHistory();
+  });
+  document.getElementById('filterToDate').addEventListener('change', (e) => {
+    salesHistoryFilters.toDate = e.target.value;
+    rerenderSalesHistory();
+  });
+  document.getElementById('filterTillDateBtn').addEventListener('click', () => {
+    salesHistoryFilters.fromDate = '';
+    salesHistoryFilters.toDate = todayStr();
+    rerenderSalesHistory();
+  });
+  document.getElementById('filterClearBtn').addEventListener('click', () => {
+    salesHistoryFilters = { patient: '', medicineId: '', fromDate: '', toDate: '' };
+    rerenderSalesHistory();
+  });
+}
+
+/* ------------------------------- Patient Dues ------------------------------------ */
+
+function renderPatientDues() {
+  const duesByPatient = {};
+  DB.sales.forEach(s => {
+    if (!s.patientName) return;
+    const key = s.patientName.trim().toLowerCase();
+    if (!duesByPatient[key]) duesByPatient[key] = { name: s.patientName.trim(), totalDue: 0, entries: [] };
+    if ((s.dueAmount || 0) > 0) {
+      duesByPatient[key].totalDue += s.dueAmount;
+      duesByPatient[key].entries.push(s);
+    }
+  });
+
+  let patients = Object.values(duesByPatient).filter(p => p.totalDue > 0);
+  patients.sort((a, b) => b.totalDue - a.totalDue);
+  const grandTotalDue = patients.reduce((sum, p) => sum + p.totalDue, 0);
+
+  const patientCards = patients.length ? patients.map(p => {
+    const entryRows = [...p.entries].sort((a, b) => (b.date + b.id).localeCompare(a.date + a.id)).map(s => `
+      <tr>
+        <td class="font-semibold text-teal-700">#${s.invoiceNumber || '-'}</td>
+        <td>${s.date}</td><td>${saleItemsSummary(s)}</td>
+        <td>${fmtMoney(s.totalAmount)}</td><td>${fmtMoney(s.paidAmount)}</td>
+        <td class="font-semibold text-red-600">${fmtMoney(s.dueAmount)}</td>
+        <td class="whitespace-nowrap space-x-2">
+          <button data-settledue="${s.id}" class="font-semibold text-teal-600 hover:underline">Mark Paid</button>
+          ${s.patientPhone ? `<button data-remindwhatsapp="${s.id}" class="font-semibold text-emerald-600 hover:underline">WhatsApp Remind</button>` : ''}
+        </td>
+      </tr>`).join('');
+    return `
+      <div class="${CARD} mb-5">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 class="text-lg font-bold text-teal-700">${escapeHtml(p.name)}</h3>
+          <span class="rounded-full bg-red-50 px-3 py-1 text-sm font-bold text-red-700">Total Due: ${fmtMoney(p.totalDue)}</span>
+        </div>
+        ${tableWrap(`
+          <thead><tr class="app-table-head bg-teal-50"><th class="px-3 py-2 font-semibold text-teal-700">Bill No</th><th class="px-3 py-2 font-semibold text-teal-700">Date</th><th class="px-3 py-2 font-semibold text-teal-700">Medicines</th><th class="px-3 py-2 font-semibold text-teal-700">Total</th><th class="px-3 py-2 font-semibold text-teal-700">Paid</th><th class="px-3 py-2 font-semibold text-teal-700">Due</th><th class="px-3 py-2 font-semibold text-teal-700">Action</th></tr></thead>
+          <tbody class="std-tbody">${entryRows}</tbody>
+        `)}
+      </div>`;
+  }).join('') : `<div class="${CARD} py-10 text-center text-slate-400">Koi bhi patient due nahi hai. Sabka payment clear hai!</div>`;
+
+  return `
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <h2 class="text-2xl font-extrabold text-teal-700">Patient Dues</h2>
+      <span class="rounded-xl bg-red-50 px-4 py-2 text-lg font-bold text-red-700">Grand Total Due: ${fmtMoney(grandTotalDue)}</span>
+    </div>
+    ${patientCards}`;
+}
+
+function attachPatientDuesEvents() {
+  document.querySelectorAll('[data-settledue]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const saleId = btn.dataset.settledue;
+      const sale = DB.sales.find(s => String(s.id) === String(saleId));
+      if (!sale) return;
+      if (!confirm(`${escapeHtml(sale.patientName)} ka due ${fmtMoneyPlain(sale.dueAmount)} paid mark karein?`)) return;
+      sale.paidAmount = (sale.paidAmount || 0) + sale.dueAmount;
+      sale.dueAmount = 0;
+      saveDB(DB);
+      toast('Due marked as paid.');
+      route();
+    });
+  });
+
+  document.querySelectorAll('[data-remindwhatsapp]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sale = DB.sales.find(s => String(s.id) === String(btn.dataset.remindwhatsapp));
+      if (!sale || !sale.patientPhone) return;
+      const digitsOnly = String(sale.patientPhone).replace(/\D/g, '');
+      const fullPhone = digitsOnly.length === 10 ? '91' + digitsOnly : digitsOnly;
+      const msg = encodeURIComponent(`Namaste ${sale.patientName} ji,\n\nAapka Shree RK iTeraHERTZ Care ka bill #${sale.invoiceNumber || '-'} (${sale.date}) ka ${fmtMoneyPlain(sale.dueAmount)} due hai.\nKripya jald payment kar dein. Dhanyavaad!`);
+      window.open(`https://wa.me/${fullPhone}?text=${msg}`, '_blank');
+    });
+  });
+}
+
+/* ------------------------------- Puji (Capital) ----------------------------------- */
+
+// Cost-value helpers, all based on each medicine's current Purchase Price.
+// (Simple approximation used by small clinics: if a purchase price changes
+// later, past entries are still valued at today's price. Good enough for
+// tracking capital flow without needing per-batch costing.)
+
+function stockReceivedValue() {
+  return DB.stockEntries.reduce((sum, e) => {
+    const med = getMedicine(e.medicineId);
+    return sum + (med ? e.totalQty * (med.purchasePrice || 0) : 0);
+  }, 0);
+}
+
+function costOfGoodsSold(sales) {
+  return (sales || DB.sales).reduce((sum, sale) => {
+    // "Sale 50%" is, by definition, a cost-to-cost sale (sold at half of
+    // MRP, which is the assumed cost). So the ENTIRE amount received on
+    // these sales is Puji coming back, not profit — always, regardless of
+    // whatever Purchase Price happens to be set on the medicine. This
+    // keeps the 0-profit rule reliable even if Purchase Price was entered
+    // incorrectly or left outdated on some medicine.
+    if (sale.saleType === 'Sale 50%') return sum + sale.totalAmount;
+
+    return sum + (sale.items || []).reduce((s2, it) => {
+      const med = getMedicine(it.medicineId);
+      return s2 + (med ? it.quantity * (med.purchasePrice || 0) : 0);
+    }, 0);
+  }, 0);
+}
+
+function currentStockCostValue() {
+  return DB.medicines.reduce((sum, m) => sum + totalStock(m.id) * (m.purchasePrice || 0), 0);
+}
+
+function renderCapital() {
+  const totalCapitalInvested = DB.capitalEntries.reduce((s, e) => s + e.amount, 0);
+  const totalStockReceived = stockReceivedValue();
+  const totalCOGS = costOfGoodsSold();
+  const totalRevenue = DB.sales.reduce((s, sale) => s + sale.totalAmount, 0);
+  const totalProfit = totalRevenue - totalCOGS;
+  const stockInHandValue = currentStockCostValue();
+
+  function statCard(label, value, accent) {
+    const accentClasses = { brand: 'text-teal-700 bg-teal-50', amber: 'text-amber-700 bg-amber-50', emerald: 'text-emerald-700 bg-emerald-50', red: 'text-red-700 bg-red-50' };
+    return `<div class="${CARD}"><p class="text-sm font-medium text-slate-500">${label}</p>
+      <p class="mt-2 inline-block rounded-lg px-2 py-1 text-2xl font-extrabold ${accentClasses[accent] || accentClasses.brand}">${value}</p></div>`;
+  }
+
+  // Month-wise profit: revenue collected per month minus the cost (at
+  // purchase price) of whatever was sold that month.
+  const monthMap = {};
+  DB.sales.forEach(sale => {
+    const month = sale.date.slice(0, 7);
+    if (!monthMap[month]) monthMap[month] = { revenue: 0, cogs: 0 };
+    monthMap[month].revenue += sale.totalAmount;
+    monthMap[month].cogs += costOfGoodsSold([sale]);
+  });
+  const months = Object.keys(monthMap).sort().reverse();
+  const monthRows = months.length ? months.map(mo => {
+    const { revenue, cogs } = monthMap[mo];
+    const profit = revenue - cogs;
+    return `<tr><td class="font-medium">${mo}</td><td>${fmtMoney(revenue)}</td><td>${fmtMoney(cogs)}</td>
+      <td class="font-semibold ${profit >= 0 ? 'text-emerald-700' : 'text-red-600'}">${fmtMoney(profit)}</td></tr>`;
+  }).join('') : `<tr><td colspan="4" class="py-6 text-center text-slate-400">Abhi koi sale nahi hui.</td></tr>`;
+
+  const capitalRows = [...DB.capitalEntries].sort((a, b) => (b.date + b.id).localeCompare(a.date + a.id)).length
+    ? [...DB.capitalEntries].sort((a, b) => (b.date + b.id).localeCompare(a.date + a.id)).map(e => `
+      <tr><td>${e.date}</td><td class="font-semibold">${fmtMoney(e.amount)}</td><td class="text-slate-500">${escapeHtml(e.notes || '-')}</td>
+      <td><button data-deletecapital="${e.id}" class="font-semibold text-red-600 hover:underline">Delete</button></td></tr>`).join('')
+    : `<tr><td colspan="4" class="py-6 text-center text-slate-400">Koi capital entry nahi hai.</td></tr>`;
+
+  return `
+    <h2 class="mb-2 text-2xl font-extrabold text-teal-700">Puji (Capital)</h2>
+    <p class="mb-6 text-sm text-slate-500">Patient Sale ka profit = Amount &minus; Purchase Price (jo Medicines page par set hoti hai, aksar MRP ka 50%). <strong>ID Sale</strong> hamesha cost-to-cost mani jaati hai &mdash; uska poora amount Puji mein count hota hai, profit hamesha 0.</p>
+
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      ${statCard('Total Puji Lagayi', fmtMoney(totalCapitalInvested))}
+      ${statCard('Kul Dava Mangwaya (Cost)', fmtMoney(totalStockReceived))}
+      ${statCard('Abhi Stock Mein Atki Puji', fmtMoney(stockInHandValue), 'amber')}
+      ${statCard('Dava Becha (Puji Wapas Aayi)', fmtMoney(totalCOGS), 'emerald')}
+      ${statCard('Total Sale Revenue', fmtMoney(totalRevenue), 'emerald')}
+      ${statCard('Total Profit (All-Time)', fmtMoney(totalProfit), totalProfit >= 0 ? 'emerald' : 'red')}
+    </div>
+
+    <div class="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div class="${CARD}">
+        <h3 class="mb-4 text-lg font-bold text-teal-700">Add Capital Entry</h3>
+        <form id="capitalForm" class="space-y-4">
+          <div><label class="${LABEL}">Date</label><input id="capitalDate" type="date" class="${INPUT}" value="${todayStr()}" required /></div>
+          <div><label class="${LABEL}">Amount (&#8377;)</label><input id="capitalAmount" type="number" min="0" step="0.01" class="${INPUT}" required /></div>
+          <div><label class="${LABEL}">Notes (Optional)</label><input id="capitalNotes" class="${INPUT}" placeholder="e.g. Bank se nikala, dawa wholesaler ko diya" /></div>
+          <p id="capitalError" class="text-sm font-medium text-red-600" style="display:none"></p>
+          <button type="submit" class="${BTN_PRIMARY} w-full">Save Capital Entry</button>
+        </form>
+      </div>
+
+      <div>
+        <h3 class="mb-4 text-lg font-bold text-teal-700">Capital Entry History</h3>
+        <p class="mb-3 text-sm text-slate-500">Delete karne ke liye 4-digit security PIN maanga jayega.</p>
+        ${tableWrap(`
+          <thead><tr class="app-table-head bg-teal-50"><th class="px-3 py-2 font-semibold text-teal-700">Date</th><th class="px-3 py-2 font-semibold text-teal-700">Amount</th><th class="px-3 py-2 font-semibold text-teal-700">Notes</th><th class="px-3 py-2 font-semibold text-teal-700">Action</th></tr></thead>
+          <tbody class="std-tbody">${capitalRows}</tbody>
+        `)}
+      </div>
+    </div>
+
+    <h3 class="mb-3 mt-8 text-lg font-bold text-teal-700">Month-wise Profit</h3>
+    ${tableWrap(`
+      <thead><tr class="app-table-head bg-teal-50">
+        <th class="px-4 py-3 font-semibold text-teal-700">Month</th><th class="px-4 py-3 font-semibold text-teal-700">Revenue</th>
+        <th class="px-4 py-3 font-semibold text-teal-700">Cost of Goods Sold</th><th class="px-4 py-3 font-semibold text-teal-700">Profit</th>
+      </tr></thead>
+      <tbody class="std-tbody">${monthRows}</tbody>
+    `)}`;
+}
+
+function attachCapitalEvents() {
+  document.getElementById('capitalForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById('capitalError');
+    const date = document.getElementById('capitalDate').value;
+    const amount = Number(document.getElementById('capitalAmount').value);
+    const notes = document.getElementById('capitalNotes').value.trim();
+
+    if (isNaN(amount) || amount <= 0) { errEl.textContent = 'Valid amount dalein (zero se zyada).'; errEl.style.display = 'block'; return; }
+
+    const id = DB.meta.nextCapitalId++;
+    DB.capitalEntries.push({ id, date, amount, notes, createdAt: new Date().toISOString() });
+    saveDB(DB);
+    toast('Capital entry saved.');
+    route();
+  });
+
+  document.querySelectorAll('[data-deletecapital]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      askForPin(() => {
+        if (!confirm('Yeh capital entry delete karein?')) return;
+        DB.capitalEntries = DB.capitalEntries.filter(e => String(e.id) !== String(btn.dataset.deletecapital));
+        saveDB(DB);
+        toast('Capital entry deleted.');
+        route();
+      }, 'Enter PIN to Delete Capital Entry');
+    });
+  });
+}
+
+/* --------------------------------- Reports --------------------------------------- */
+
+const REPORT_TABS = [
+  { key: 'inventory', label: 'Current Inventory' },
+  { key: 'stock_ledger', label: 'Stock Ledger (Full History)' },
+  { key: 'todays_sales', label: "Today's Sales" },
+  { key: 'monthly_sales', label: 'Monthly Sales' },
+  { key: 'low_stock', label: 'Low Stock' }
+];
+
+let activeReportTab = 'inventory';
+let activeReportMonth = new Date().toISOString().slice(0, 7);
+
+function getReportData(type, month) {
+  if (type === 'inventory') {
+    return DB.medicines.filter(m => m.status === 'Active').map(m => {
+      const inv = getInventory(m.id);
+      return { Medicine: m.name, Category: m.category, 'Home Stock': inv.homeStock || 0, 'Clinic Stock': inv.clinicStock || 0, 'Total Stock': (inv.homeStock || 0) + (inv.clinicStock || 0), 'Min Alert': m.minStockAlert };
+    });
+  }
+  if (type === 'stock_ledger') {
+    // Simple lifetime accounting for every medicine, built entirely from
+    // records already kept elsewhere (Stock Entries + current Inventory),
+    // plus each medicine's optional "Opening Stock" (for quantity purchased
+    // before this app was used, so history isn't lost):
+    // Total Sell = Total Purchased minus whatever is Available right now.
+    return DB.medicines.map(m => {
+      const totalPurchased = (m.openingStock || 0) + DB.stockEntries
+        .filter(e => String(e.medicineId) === String(m.id))
+        .reduce((s, e) => s + (e.totalQty || 0), 0);
+      const inv = getInventory(m.id);
+      const homeAvailable = inv.homeStock || 0;
+      const clinicAvailable = inv.clinicStock || 0;
+      const totalAvailable = homeAvailable + clinicAvailable;
+      const totalSell = totalPurchased - totalAvailable;
+      return {
+        Medicine: m.name,
+        'Total Purchased': totalPurchased,
+        'Home Available': homeAvailable,
+        'Clinic Available': clinicAvailable,
+        'Total Available': totalAvailable,
+        'Total Sell': totalSell
+      };
+    });
+  }
+  if (type === 'todays_sales') {
+    const today = todayStr();
+    return DB.sales.filter(s => s.date === today).map(s => saleRow(s));
+  }
+  if (type === 'monthly_sales') {
+    return DB.sales.filter(s => s.date.startsWith(month)).map(s => saleRow(s));
+  }
+  if (type === 'low_stock') {
+    return DB.medicines.filter(m => m.status === 'Active' && totalStock(m.id) <= m.minStockAlert)
+      .map(m => ({ Medicine: m.name, Category: m.category, 'Total Stock': totalStock(m.id), 'Min Alert': m.minStockAlert }));
+  }
+  return [];
+}
+
+function saleRow(s) {
+  return { Date: s.date, Patient: s.patientName, Medicines: saleItemsSummary(s), Qty: saleQtyTotal(s), 'Total Amount': s.totalAmount, Paid: s.paidAmount, Due: s.dueAmount, Payment: s.paymentMode, Type: s.saleType || 'Regular' };
+}
+
+function renderReports() {
+  const tabs = REPORT_TABS.map(t => `<button data-reporttab="${t.key}" class="rounded-xl px-4 py-2 text-sm font-semibold ${activeReportTab === t.key ? 'bg-teal-500 text-white' : 'bg-white text-teal-700 border border-teal-200'}">${t.label}</button>`).join('');
+
+  const data = getReportData(activeReportTab, activeReportMonth);
+  const columns = data.length ? Object.keys(data[0]) : [];
+
+  let rows;
+  if (activeReportTab === 'stock_ledger' && data.length) {
+    // Total Sell is just Purchased minus Available, so it's always
+    // internally consistent — except if it comes out NEGATIVE, which is
+    // impossible in real life and means stock was likely added directly
+    // via the Inventory page (bypassing Stock Entry), so Total Purchased
+    // is understated. Flag those rows so it's easy to spot and fix.
+    rows = data.map(row => {
+      const suspicious = row['Total Sell'] < 0;
+      return `<tr class="${suspicious ? 'bg-red-50' : ''}">${columns.map(c => {
+        const isFlagCol = c === 'Total Sell';
+        return `<td class="${isFlagCol && suspicious ? 'font-bold text-red-700' : ''}">${row[c]}</td>`;
+      }).join('')}</tr>`;
+    }).join('');
+  } else {
+    rows = data.length ? data.map(row => `<tr>${columns.map(c => `<td>${row[c]}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${Math.max(columns.length, 1)}" class="py-8 text-center text-slate-400">No data for this report.</td></tr>`;
+  }
+
+  return `
+    <h2 class="mb-6 text-2xl font-extrabold text-teal-700">Reports</h2>
+    <div class="mb-6 flex flex-wrap gap-2">${tabs}</div>
+    ${activeReportTab === 'stock_ledger' ? `<p class="mb-4 text-sm text-slate-500">Har medicine ke liye: April se ab tak kitna Purchase hua (Stock Entry se), abhi Home aur Clinic mein kitna Available hai, aur inka difference hi <strong>Total Sell</strong> hai (Purchased &minus; Available). Agar Total Sell laal rang mein negative dikhe, iska matlab stock kabhi Inventory page se seedha edit hua tha bina Stock Entry ke &mdash; wahan check kar lena.</p>` : ''}
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+      ${activeReportTab === 'monthly_sales' ? `<input id="reportMonth" type="month" class="${INPUT}" style="max-width:180px" value="${activeReportMonth}" />` : '<span></span>'}
+      <div class="ml-auto flex gap-2">
+        <button id="exportPdfBtn" class="${BTN_SECONDARY}">Export PDF</button>
+        <button id="exportExcelBtn" class="${BTN_SECONDARY}">Export Excel</button>
+      </div>
+    </div>
+    ${tableWrap(`
+      <thead><tr class="app-table-head bg-teal-50">${columns.map(c => `<th class="px-4 py-3 font-semibold text-teal-700">${c}</th>`).join('')}</tr></thead>
+      <tbody class="std-tbody">${rows}</tbody>
+    `)}`;
+}
+
+function attachReportsEvents() {
+  document.querySelectorAll('[data-reporttab]').forEach(btn => {
+    btn.addEventListener('click', () => { activeReportTab = btn.dataset.reporttab; route(); });
+  });
+  const monthInput = document.getElementById('reportMonth');
+  if (monthInput) monthInput.addEventListener('change', (e) => { activeReportMonth = e.target.value; route(); });
+
+  document.getElementById('exportPdfBtn').addEventListener('click', exportReportPdf);
+  document.getElementById('exportExcelBtn').addEventListener('click', exportReportExcel);
+}
+
+function exportReportPdf() {
+  const data = getReportData(activeReportTab, activeReportMonth);
+  const tabLabel = REPORT_TABS.find(t => t.key === activeReportTab).label;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(14);
+  doc.text('Shree RK iTeraHERTZ Care', 105, 15, { align: 'center' });
+  doc.setFontSize(11);
+  doc.text(tabLabel, 105, 22, { align: 'center' });
+  doc.setFontSize(8);
+  doc.setTextColor(120);
+  doc.text(`Generated on ${new Date().toLocaleString('en-IN')}`, 105, 28, { align: 'center' });
+
+  if (data.length === 0) {
+    doc.setTextColor(0);
+    doc.text('No data available for this report.', 14, 40);
+  } else {
+    const columns = Object.keys(data[0]);
+    doc.autoTable({
+      startY: 34,
+      head: [columns],
+      body: data.map(row => columns.map(c => String(row[c] ?? ''))),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [15, 118, 110] }
+    });
+  }
+  doc.save(`${activeReportTab}-report.pdf`);
+}
+
+function exportReportExcel() {
+  const data = getReportData(activeReportTab, activeReportMonth);
+  const ws = XLSX.utils.json_to_sheet(data.length ? data : [{ Info: 'No data available for this report.' }]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, REPORT_TABS.find(t => t.key === activeReportTab).label.slice(0, 31));
+  XLSX.writeFile(wb, `${activeReportTab}-report.xlsx`);
+}
+
+/* --------------------------------- Settings --------------------------------------- */
+
+function renderSettings() {
+  return `
+    <h2 class="mb-6 text-2xl font-extrabold text-teal-700">Settings</h2>
+
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div class="${CARD}">
+        <h3 class="mb-2 text-lg font-bold text-teal-700">Data Backup</h3>
+        <p class="mb-4 text-sm text-slate-500">Aapka saara data (medicines, stock, sales) sirf isi browser mein save hota hai. Yeh options data ko safe rakhne mein madad karte hain.</p>
+
+        <div class="mb-4 rounded-xl bg-teal-50 px-4 py-3 text-sm text-teal-800">
+          <p id="autoBackupStatus">Automatic backup status check ho raha hai...</p>
+        </div>
+
+        <button id="backupBtn" class="${BTN_PRIMARY} w-full mb-2">Download Backup Now (.json)</button>
+        <button id="shareBackupBtn" class="${BTN_SECONDARY} w-full mb-2">Share Backup (WhatsApp / Drive / Email)</button>
+        <button id="connectBackupBtn" class="${BTN_SECONDARY} w-full mb-3">Connect a File for Daily Auto-Save (Computer)</button>
+
+        <hr class="my-4" />
+        <h4 class="mb-2 font-semibold text-slate-700">Restore from Backup</h4>
+        <p class="mb-3 text-sm text-slate-500">This will replace all current data with the contents of the backup file.</p>
+        <input id="restoreFile" type="file" accept="application/json" class="${INPUT}" />
+        <p id="restoreError" class="mt-2 text-sm font-medium text-red-600" style="display:none"></p>
+      </div>
+
+      <div class="${CARD}">
+        <h3 class="mb-2 text-lg font-bold text-teal-700">Change Password</h3>
+        <form id="passwordForm" class="space-y-4">
+          <div><label class="${LABEL}">Current Password</label><input id="currentPassword" type="password" class="${INPUT}" required /></div>
+          <div><label class="${LABEL}">New Password</label><input id="newPassword" type="password" class="${INPUT}" required /></div>
+          <p id="passwordError" class="text-sm font-medium text-red-600" style="display:none"></p>
+          <p id="passwordSuccess" class="text-sm font-medium text-emerald-600" style="display:none"></p>
+          <button type="submit" class="${BTN_PRIMARY} w-full">Update Password</button>
+        </form>
+      </div>
+
+      <div class="${CARD}">
+        <h3 class="mb-2 text-lg font-bold text-teal-700">Security PIN</h3>
+        <p class="mb-4 text-sm text-slate-500">Yeh 4-digit PIN medicine edit/delete aur inventory edit jaise sensitive actions ko protect karta hai.</p>
+        <form id="pinForm" class="space-y-4">
+          <div><label class="${LABEL}">Current PIN</label><input id="currentPin" type="password" maxlength="4" inputmode="numeric" class="${INPUT}" required /></div>
+          <div><label class="${LABEL}">New 4-digit PIN</label><input id="newPin" type="password" maxlength="4" inputmode="numeric" class="${INPUT}" required /></div>
+          <p id="pinFormError" class="text-sm font-medium text-red-600" style="display:none"></p>
+          <p id="pinFormSuccess" class="text-sm font-medium text-emerald-600" style="display:none"></p>
+          <button type="submit" class="${BTN_PRIMARY} w-full">Update PIN</button>
+        </form>
+      </div>
+    </div>`;
+}
+
+function attachSettingsEvents() {
+  document.getElementById('backupBtn').addEventListener('click', () => {
+    downloadBackupFile();
+    localStorage.setItem(LAST_AUTOBACKUP_KEY, todayStr());
+    toast('Backup downloaded.');
+    updateAutoBackupStatusDisplay();
+  });
+
+  document.getElementById('shareBackupBtn').addEventListener('click', shareBackupFile);
+
+  document.getElementById('connectBackupBtn').addEventListener('click', async () => {
+    await connectBackupFile();
+    updateAutoBackupStatusDisplay();
+  });
+
+  updateAutoBackupStatusDisplay();
+
+  async function updateAutoBackupStatusDisplay() {
+    const statusEl = document.getElementById('autoBackupStatus');
+    if (!statusEl) return;
+    const handle = await loadBackupFileHandle();
+    const last = localStorage.getItem(LAST_AUTOBACKUP_KEY);
+    const lastText = last ? `Last backup: ${last}` : 'Abhi tak koi automatic backup nahi hua.';
+    if (handle) {
+      statusEl.innerHTML = `&#9989; Auto-save ON &mdash; "<strong>${escapeHtml(handle.name)}</strong>" file har din khud update hoti hai. ${lastText}`;
+    } else {
+      statusEl.innerHTML = `&#8505;&#65039; Har din app khulte hi backup Downloads folder mein khud download ho jati hai (bina click kiye). ${lastText}`;
+    }
+  }
+
+  document.getElementById('restoreFile').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const errEl = document.getElementById('restoreError');
+    errEl.style.display = 'none';
+    if (!confirm('This will replace ALL current data with the backup file. Continue?')) { e.target.value = ''; return; }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        if (!parsed.medicines || !parsed.inventory || !parsed.sales || !parsed.admin) {
+          throw new Error('This does not look like a valid backup file.');
+        }
+        DB = migrateDB(parsed);
+        saveDB(DB);
+        toast('Backup restored successfully.');
+        route();
+      } catch (err) {
+        errEl.textContent = 'Could not restore: ' + err.message;
+        errEl.style.display = 'block';
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  document.getElementById('passwordForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById('passwordError');
+    const successEl = document.getElementById('passwordSuccess');
+    errEl.style.display = 'none';
+    successEl.style.display = 'none';
+
+    const current = document.getElementById('currentPassword').value;
+    const next = document.getElementById('newPassword').value;
+
+    if (current !== DB.admin.password) { errEl.textContent = 'Current password is incorrect.'; errEl.style.display = 'block'; return; }
+    if (next.length < 4) { errEl.textContent = 'New password must be at least 4 characters.'; errEl.style.display = 'block'; return; }
+
+    DB.admin.password = next;
+    saveDB(DB);
+    successEl.textContent = 'Password updated successfully.';
+    successEl.style.display = 'block';
+    document.getElementById('passwordForm').reset();
+  });
+
+  document.getElementById('pinForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById('pinFormError');
+    const successEl = document.getElementById('pinFormSuccess');
+    errEl.style.display = 'none';
+    successEl.style.display = 'none';
+
+    const current = document.getElementById('currentPin').value;
+    const next = document.getElementById('newPin').value;
+
+    if (current !== DB.admin.securityPin) { errEl.textContent = 'Current PIN is incorrect.'; errEl.style.display = 'block'; return; }
+    if (!/^\d{4}$/.test(next)) { errEl.textContent = 'New PIN exactly 4 digits ka hona chahiye.'; errEl.style.display = 'block'; return; }
+
+    DB.admin.securityPin = next;
+    saveDB(DB);
+    successEl.textContent = 'Security PIN updated successfully.';
+    successEl.style.display = 'block';
+    document.getElementById('pinForm').reset();
+  });
+}
+
+</script>
+</body>
+</html>
